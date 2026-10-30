@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parallaxa"
+version = "0.1.0"
+description = "Local 2D-to-3D stereoscopic converter for photos and videos (personal use)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT (code only; see MODELS.md for model licences)" }
+dependencies = [
+    # torch / torchvision are installed separately so the CUDA build can be chosen (see README).
+    "numpy>=1.24",
+    "pillow>=10.0",
+    "pillow-heif>=0.16",
+    "opencv-python-headless>=4.8",
+    "transformers>=4.45",
+    "huggingface_hub>=0.24",
+    "safetensors>=0.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+parallaxa = "parallaxa.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["parallaxa*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
