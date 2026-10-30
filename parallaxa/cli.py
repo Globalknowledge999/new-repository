@@ -148,7 +148,7 @@ def cmd_models(_a) -> int:
 def cmd_info(_a) -> int:
     import torch
 
-    from .io.video_io import encoder_available, ffmpeg_bin
+    from .io.video_io import encoder_check, ffmpeg_bin
 
     print(f"parallaxa {__version__}, python {sys.version.split()[0]}, torch {torch.__version__}")
     print(f"CUDA available: {torch.cuda.is_available()}" + (f" ({torch.version.cuda})" if torch.cuda.is_available() else ""))
@@ -159,7 +159,11 @@ def cmd_info(_a) -> int:
     try:
         print(f"ffmpeg: {ffmpeg_bin()}")
         for enc in ("hevc_nvenc", "h264_nvenc", "libx265", "libx264"):
-            print(f"  {enc:11s} {'ok' if encoder_available(enc) else 'not available'}")
+            ok, err = encoder_check(enc)
+            print(f"  {enc:11s} {'ok' if ok else 'not available'}")
+            if not ok and err:
+                for line in err.splitlines()[:4]:
+                    print(f"      {line}")
     except RuntimeError as e:
         print(e)
     return 0

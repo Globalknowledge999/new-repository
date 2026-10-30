@@ -191,14 +191,19 @@ class FrameReader:
 
 
 @lru_cache(maxsize=None)
-def encoder_available(name: str) -> bool:
-    """True if ffmpeg can actually open this encoder (e.g. NVENC needs an NVIDIA GPU + driver)."""
+def encoder_check(name: str) -> tuple[bool, str]:
+    """Try to encode one frame; return (ok, ffmpeg's error text). NVENC needs an NVIDIA GPU + recent driver."""
     cmd = [ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=black:s=256x256:d=0.1",
            "-frames:v", "1", "-c:v", name, "-f", "null", "-"]
     try:
-        return subprocess.run(cmd, capture_output=True, timeout=30, creationflags=_NO_WINDOW).returncode == 0
-    except (OSError, subprocess.TimeoutExpired):
-        return False
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30, creationflags=_NO_WINDOW)
+        return r.returncode == 0, r.stderr.strip()
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, str(e)
+
+
+def encoder_available(name: str) -> bool:
+    return encoder_check(name)[0]
 
 
 def choose_encoder(codec: str, encoder: str, width: int) -> tuple[str, str]:
