@@ -194,6 +194,7 @@ class MainWindow(QMainWindow):
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setVisible(False)
         self.table.setAcceptDrops(False)
+        self.table.setMinimumHeight(100)
         hdr = self.table.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for c in (1, 2, 3, 4):
@@ -210,7 +211,9 @@ class MainWindow(QMainWindow):
                       f"Videos: {', '.join(sorted(e.lstrip('.') for e in VIDEO_EXTS))}")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hint.setWordWrap(True)
-        hint.setStyleSheet("QLabel { border: 2px dashed #7c8798; border-radius: 12px; color: #7c8798; font-size: 15px; padding: 24px; }")
+        hint.setMinimumHeight(100)  # may shrink so the settings below always fit
+        hint.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
+        hint.setStyleSheet("QLabel { border: 2px dashed #7c8798; border-radius: 12px; color: #7c8798; font-size: 15px; padding: 12px; }")
         self.queue_stack = QStackedWidget()
         self.queue_stack.addWidget(hint)
         self.queue_stack.addWidget(self.table)
@@ -221,15 +224,18 @@ class MainWindow(QMainWindow):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         settings = self._build_settings()
         scroll.setWidget(settings)
-        # Never taller than the settings themselves: spare height goes to the queue, not to grey space.
-        scroll.setMaximumHeight(settings.sizeHint().height() + 4)
+        self._settings_widget, self._settings_scroll = settings, scroll
         left = QSplitter(Qt.Orientation.Vertical)
-        left.addWidget(self.queue_stack)
+        # Framed like the Preview panel, so the drop area doesn't touch the window edge.
+        queue_box = QGroupBox("Queue")
+        ql = QVBoxLayout(queue_box)
+        ql.addWidget(self.queue_stack)
+        left.addWidget(queue_box)
         left.addWidget(scroll)
         left.setStretchFactor(0, 1)
         left.setStretchFactor(1, 0)
         left.setCollapsible(0, False)
-        self._left_split, self._settings_height, self._sized = left, settings.sizeHint().height() + 4, False
+        self._left_split, self._sized = left, False
         split.addWidget(left)
 
         # Right: the preview gets all the height.
@@ -588,10 +594,12 @@ class MainWindow(QMainWindow):
 
     def showEvent(self, e) -> None:
         super().showEvent(e)
-        if not self._sized:  # settings get their full height; the queue takes whatever is left
+        if not self._sized:  # measured once styled: settings get their full height, the queue the rest
             self._sized = True
+            h = self._settings_widget.sizeHint().height() + 2
+            self._settings_scroll.setMaximumHeight(h)  # never taller than the settings: no grey space
             total = sum(self._left_split.sizes())
-            self._left_split.setSizes([max(120, total - self._settings_height), self._settings_height])
+            self._left_split.setSizes([max(140, total - h), h])
 
     def dragEnterEvent(self, e) -> None:
         if e.mimeData().hasUrls():
