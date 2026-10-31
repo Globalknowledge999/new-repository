@@ -21,6 +21,9 @@ DefaultGroupName=Parallaxa
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog commandline
+; Always ask "all users / only me". Inno's default (yes) silently reuses an earlier install's mode, which
+; kept moving per-user installs from older builds back into %LOCALAPPDATA%.
+UsePreviousPrivileges=no
 ; Don't reuse the folder of an earlier per-user install; that copy is removed instead (see [Code]).
 UsePreviousAppDir=no
 ; The build number tells setups from different CI runs apart.
