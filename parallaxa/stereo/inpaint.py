@@ -173,11 +173,22 @@ class DiffusionInpainter:
         t0 = time.perf_counter()
         self.stats = {"tiles": 0, "seconds": 0.0}
         out = img.clone()
+        # cuDNN autotuning re-tunes every new conv shape of the diffusion model, which costs far more
+        # than it saves in a one-off photo run. (RTX 3060: ~7 s per tile in conversions that had it on,
+        # ~1.7 s per tile in `bench --inpaint` without it.)
+        tuning = torch.backends.cudnn.benchmark
+        torch.backends.cudnn.benchmark = False
+        try:
+            self._refine_all(img, holes, z, out)
+        finally:
+            torch.backends.cudnn.benchmark = tuning
+        self.stats["seconds"] = time.perf_counter() - t0
+        return out
+
+    def _refine_all(self, img: torch.Tensor, holes: torch.Tensor, z: torch.Tensor, out: torch.Tensor) -> None:
         for b in range(img.shape[0]):
             if holes[b].any():
                 out[b : b + 1] = self._one(img[b : b + 1].float(), holes[b : b + 1], z[b : b + 1].float())
-        self.stats["seconds"] = time.perf_counter() - t0
-        return out
 
     def _one(self, img: torch.Tensor, holes: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         _, _, h, w = img.shape

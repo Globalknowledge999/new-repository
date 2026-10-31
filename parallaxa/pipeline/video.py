@@ -138,6 +138,10 @@ def convert_video(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
     engine.log(f"{src.name}: {info.width}x{info.height} @ {float(info.fps):.3f} fps, ~{info.frame_count} frames, "
                f"audio={','.join(info.audio_codecs) or 'none'} -> eye {ew}x{eh}, {', '.join(formats)}")
 
+    if engine.device.type == "cuda":
+        # Thousands of frames share one size, so cuDNN's one-off autotuning pays off. (Photos skip it:
+        # each run is a new process and would pay the tuning cost every time without benefit.)
+        torch.backends.cudnn.benchmark = True
     est = engine.depth_model(model, depth_res)
     inpainter = engine.inpainter("video")
     if inpainter is not None:
