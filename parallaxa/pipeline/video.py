@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import sys
 import time
 from collections import deque
 from contextlib import contextmanager
@@ -254,8 +255,12 @@ def convert_video(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
             wr.out_path.unlink(missing_ok=True)
         if reader:
             reader.close()
-        if work.path.exists() and work.load().get("done_segments"):
-            engine.log(f"stopped; {work.load()['done_segments']} finished segment(s) kept. Run the same command again to resume.")
+        if progress_mode == "text":
+            sys.stderr.write("\n")  # end the progress line
+        kept = work.load().get("done_segments", 0) if work.path.exists() else 0
+        if kept:
+            engine.log(f"stopped at frame {pos}. Frames 0-{kept * seg_len - 1} are saved ({kept} segment(s) in {work.path.name}); "
+                       f"the final video is only created when the whole file is done. Run the same command again to resume.")
         raise
 
     if timing:
