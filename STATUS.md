@@ -48,8 +48,10 @@ Last updated: 2026-10-31 (phase 4)
   processes tiles with gaps; feathered composite. `--fill auto|basic|ai` (auto = ai for photos,
   basic for video). GUI: "Gap filling" setting; the preview shows basic instantly, then AI.
 - LaMa rejected: TorchScript (executable) repackaged by a third party. StereoCrafter: >12 GB, gated.
-- Tested with a tiny random pipeline only (Hugging Face blocked here): the real model's output
-  quality and speed on the 3060 still need checking.
+- On the RTX 3060: SD 1.5 inpainting loads; ~1.7 s per 512 px tile; G1.jpg at strength 5 = 12 tiles
+  in 20.5 s, 29.8 s total. An earlier 7 s per tile was caused by cuDNN autotuning, which is now on
+  for video only and off during AI fill.
+- Waiting on: the user's quality verdict (AI vs basic), which decides the photo default.
 
 ## Next
 - User to try the app on Windows (drag-drop, preview speed with DA-V2 Large, stop/resume)
