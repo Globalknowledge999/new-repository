@@ -9,8 +9,9 @@ Work happens at a reduced resolution (long side `work_long_side`) in overlapping
 tiles that contain gaps are processed, and the result is upsampled and feathered into the full
 resolution view. A fixed seed keeps the result repeatable (and steadier from frame to frame on video).
 
-Weights: Stable Diffusion 2 inpainting, CreativeML Open RAIL++-M (fine for personal use), downloaded
-as plain safetensors data from Hugging Face on first use.
+Weights (plain safetensors data from Hugging Face, downloaded on first use): by default Stable
+Diffusion 1.5 inpainting (CreativeML OpenRAIL-M), falling back to SDXL inpainting or SD 2 inpainting
+(both Open RAIL++-M) if a repository is unavailable. All are fine for personal use.
 """
 
 from __future__ import annotations
@@ -21,9 +22,11 @@ import torch
 import torch.nn.functional as F
 
 INPAINT_MODELS = {
-    "sd2": "stabilityai/stable-diffusion-2-inpainting",
-    "sd15": "stable-diffusion-v1-5/stable-diffusion-inpainting",
+    "sd15": "stable-diffusion-v1-5/stable-diffusion-inpainting",  # ~2 GB fp16, 512 px tiles
+    "sdxl": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",  # ~7 GB fp16, 1024 px tiles, slower, finer
+    "sd2": "stabilityai/stable-diffusion-2-inpainting",  # may no longer be public
 }
+AUTO_ORDER = ["sd15", "sdxl", "sd2"]  # "auto": the first one that downloads
 PROMPT = "seamless natural continuation of the surrounding background, photo, high detail"
 NEGATIVE = "person, people, face, animal, object, text, watermark, logo, frame, border, blurry, artifacts, distorted"
 
@@ -67,22 +70,51 @@ def _feather(tile: int, overlap: int, device) -> torch.Tensor:
     return (ramp[:, None] * ramp[None, :])[None, None]
 
 
-def load_pipeline(model: str, device: torch.device, dtype: torch.dtype):
+def _load_one(repo: str, dtype: torch.dtype):
     import warnings
 
-    from diffusers import DPMSolverMultistepScheduler, StableDiffusionInpaintPipeline
+    from diffusers import AutoPipelineForInpainting
+    from diffusers.utils import logging as dlogging
 
-    repo = INPAINT_MODELS.get(model, model)
-    kw = dict(torch_dtype=dtype, safety_checker=None, requires_safety_checker=False, use_safetensors=True)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    kw = dict(torch_dtype=dtype, use_safetensors=True)
+    if "xl" not in repo.lower():
+        kw.update(safety_checker=None, requires_safety_checker=False)
+    level = dlogging.get_verbosity()
+    dlogging.set_verbosity_error()  # hide noisy "couldn't connect / not expected kwarg" messages
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                return AutoPipelineForInpainting.from_pretrained(repo, variant="fp16" if dtype == torch.float16 else None, **kw)
+            except (OSError, ValueError) as e:  # no fp16 variant files: load the full-precision ones
+                if "variant" not in str(e).lower() and "fp16" not in str(e).lower():
+                    raise
+                return AutoPipelineForInpainting.from_pretrained(repo, **kw)
+    finally:
+        dlogging.set_verbosity(level)
+
+
+def load_pipeline(model: str, device: torch.device, dtype: torch.dtype, log=print):
+    from diffusers import DPMSolverMultistepScheduler
+
+    names = AUTO_ORDER if model == "auto" else [model]
+    errors = []
+    for name in names:
+        repo = INPAINT_MODELS.get(name, name)
         try:
-            pipe = StableDiffusionInpaintPipeline.from_pretrained(repo, variant="fp16" if dtype == torch.float16 else None, **kw)
-        except (OSError, ValueError):  # no fp16 variant published: load the full-precision files
-            pipe = StableDiffusionInpaintPipeline.from_pretrained(repo, **kw)
-    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config, use_karras_sigmas=True)
-    pipe.set_progress_bar_config(disable=True)
-    return pipe.to(device)
+            pipe = _load_one(repo, dtype)
+        except Exception as e:  # repository removed / gated / offline: try the next one
+            errors.append(f"{repo}: {str(e).splitlines()[0][:160]}")
+            if len(names) > 1:
+                log(f"  {repo} unavailable, trying the next model...")
+            continue
+        log(f"  using {repo}")
+        pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config, use_karras_sigmas=True)
+        pipe.set_progress_bar_config(disable=True)
+        return pipe.to(device)
+    raise RuntimeError("Could not load an AI gap-filling model:\n  " + "\n  ".join(errors) +
+                       "\nCheck your internet connection, choose another with --fill-model (sd15, sdxl, sd2 or a Hugging Face id),"
+                       " or use --fill basic.")
 
 
 def tiny_pipeline():
@@ -110,13 +142,16 @@ def tiny_pipeline():
 
 
 class DiffusionInpainter:
-    def __init__(self, device: torch.device, dtype: torch.dtype, model: str = "sd2", steps: int = 20,
+    def __init__(self, device: torch.device, dtype: torch.dtype, model: str = "auto", steps: int = 20,
                  work_long_side: int = 1024, tile: int = 512, overlap: int = 96, guidance: float = 4.0,
-                 seed: int = 1234, batch: int = 2, pipe=None):
+                 seed: int = 1234, batch: int = 2, pipe=None, log=print):
         self.device, self.dtype = device, dtype
         self.model, self.steps, self.work_long_side = model, steps, work_long_side
         self.tile, self.overlap, self.guidance, self.seed, self.batch = tile, overlap, guidance, seed, batch
-        self.pipe = pipe if pipe is not None else load_pipeline(model, device, dtype)
+        self.pipe = pipe if pipe is not None else load_pipeline(model, device, dtype, log)
+        self.xl = "XL" in type(self.pipe).__name__
+        if self.xl:  # SDXL works at 1024 px; at 512 it degrades badly
+            self.tile, self.overlap, self.work_long_side, self.batch = 1024, 160, max(work_long_side, 1536), 1
         self._embeds: tuple[torch.Tensor, torch.Tensor] | None = None
 
     def _prompt_embeds(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -161,14 +196,18 @@ class DiffusionInpainter:
         canvas = torch.zeros_like(img_w)
         weight = torch.zeros_like(img_w[:, :1])
         feather = _feather(t, self.overlap, img.device)
-        pos, neg = self._prompt_embeds()
+        pos, neg = self._prompt_embeds() if self.pipe.tokenizer is None else (None, None)
         for i in range(0, len(boxes), self.batch):
             chunk = boxes[i : i + self.batch]
             tiles = torch.cat([img_w[:, :, y : y + t, x : x + t] for y, x in chunk])
             masks = torch.cat([model_mask[:, :, y : y + t, x : x + t] for y, x in chunk])
             gen = torch.Generator(device=self.pipe.device).manual_seed(self.seed)
-            res = self.pipe(prompt_embeds=pos.repeat(len(chunk), 1, 1), negative_prompt_embeds=neg.repeat(len(chunk), 1, 1),
-                            image=tiles.to(self.dtype), mask_image=masks.to(self.dtype), height=t, width=t, strength=1.0,
+            if self.pipe.tokenizer is not None:  # real pipelines (SD 1.5/2/XL) encode the prompt themselves
+                prompts = dict(prompt=[PROMPT] * len(chunk), negative_prompt=[NEGATIVE] * len(chunk))
+            else:
+                prompts = dict(prompt_embeds=pos.repeat(len(chunk), 1, 1), negative_prompt_embeds=neg.repeat(len(chunk), 1, 1))
+            res = self.pipe(**prompts, image=tiles.to(self.dtype), mask_image=masks.to(self.dtype), height=t, width=t,
+                            strength=0.99 if self.xl else 1.0,
                             num_inference_steps=self.steps, guidance_scale=self.guidance, generator=gen,
                             output_type="pt").images.float().to(img.device)
             for (y, x), r in zip(chunk, res):
@@ -183,10 +222,10 @@ class DiffusionInpainter:
         return img * (1 - alpha) + painted * alpha
 
 
-def load_inpainter(name: str, device: torch.device, dtype: torch.dtype, steps: int = 20) -> DiffusionInpainter:
+def load_inpainter(name: str, device: torch.device, dtype: torch.dtype, steps: int = 20, log=print) -> DiffusionInpainter:
     if name == "debug-tiny":
         return DiffusionInpainter(device, torch.float32, name, steps=min(steps, 2), tile=64, overlap=16,
                                   work_long_side=128, pipe=tiny_pipeline().to(device))
     if device.type == "cpu":
         dtype = torch.float32  # half precision diffusion isn't supported on CPU
-    return DiffusionInpainter(device, dtype, name, steps=steps)
+    return DiffusionInpainter(device, dtype, name, steps=steps, log=log)

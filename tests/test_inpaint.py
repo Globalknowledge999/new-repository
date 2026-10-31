@@ -55,3 +55,26 @@ def test_renderer_uses_inpainter(scene):
 
     StereoRenderer(StereoSettings(strength=10, convergence=0)).render(t, torch.from_numpy(depth)[None], inpainter=Spy())
     assert calls and calls[0][1] > 0  # gaps were handed over
+
+
+def test_auto_model_falls_back_when_a_repository_is_unavailable(monkeypatch):
+    import pytest
+
+    from parallaxa.stereo import inpaint
+
+    tried, logs = [], []
+
+    def fake_load(repo, dtype):
+        tried.append(repo)
+        if "v1-5" in repo:
+            raise OSError("401 Repository Not Found")
+        return inpaint.tiny_pipeline()
+
+    monkeypatch.setattr(inpaint, "_load_one", fake_load)
+    pipe = inpaint.load_pipeline("auto", torch.device("cpu"), torch.float32, log=logs.append)
+    assert pipe is not None and tried == [inpaint.INPAINT_MODELS["sd15"], inpaint.INPAINT_MODELS["sdxl"]]
+    assert any("unavailable" in m for m in logs) and any("using" in m for m in logs)
+
+    monkeypatch.setattr(inpaint, "_load_one", lambda repo, dtype: (_ for _ in ()).throw(OSError("offline")))
+    with pytest.raises(RuntimeError, match="--fill basic"):
+        inpaint.load_pipeline("auto", torch.device("cpu"), torch.float32, log=logs.append)

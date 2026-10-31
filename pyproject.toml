@@ -21,6 +21,7 @@ dependencies = [
     "einops>=0.7",  # Video Depth Anything temporal head
     "PySide6-Essentials>=6.6",  # desktop GUI
     "diffusers>=0.30",  # AI gap filling (Stable Diffusion inpainting)
+    "accelerate>=0.30",  # faster, lower-RAM model loading for diffusers
 ]
 
 [project.optional-dependencies]

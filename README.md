@@ -196,12 +196,14 @@ frame-packing SEI.
   `1.0` puts the whole scene behind the screen (the most comfortable option). `0.0` makes
   everything pop out.
 * `--fill auto|basic|ai` controls gap filling. `ai` repaints the gaps beside foreground objects
-  with **Stable Diffusion 2 inpainting**, which gives real texture instead of stretched
+  with a **Stable Diffusion inpainting** model, which gives real texture instead of stretched
   background. It's the default for photos (`auto`). It's off for video because it takes a few
-  seconds per frame and can flicker. Turn it on with `--fill ai` for short clips. The first use
-  downloads ~2.6 GB. Expect roughly 10 to 30 s per photo on an RTX 3060; it depends on how many
-  gaps the picture has. `--fill-steps 20` (fewer is faster, more is finer) and
-  `--fill-model sd15` are the options.
+  seconds per frame and can flicker. Turn it on with `--fill ai` for short clips.
+  `--fill-model auto` (the default) uses SD 1.5 inpainting (~2 GB download). If that repository
+  is unavailable, it falls back to SDXL inpainting (~7 GB, slower, finer) and then SD 2. Choose
+  one directly with `sd15`, `sdxl`, `sd2` or any Hugging Face inpainting model id.
+  `--fill-steps 20` sets the steps (fewer is faster, more is finer). Expect roughly 10 to 30 s
+  per photo on an RTX 3060 with SD 1.5; it depends on how many gaps the picture has.
 * `--eye-mode symmetric|right|left`. `symmetric` (default) synthesises both eyes with half the
   shift each, which halves the size of every filled gap. `right` keeps the untouched original as
   the left eye.

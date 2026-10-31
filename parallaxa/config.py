@@ -79,7 +79,7 @@ class JobSettings:
     # Gap filling: "basic" (fast, depth-aware stretch), "ai" (Stable Diffusion inpainting on top),
     # or "auto" (ai for photos, basic for video).
     fill: str = "auto"
-    fill_model: str = "sd2"
+    fill_model: str = "auto"
     fill_steps: int = 20
     stereo: StereoSettings = field(default_factory=StereoSettings)
     depth: DepthSettings = field(default_factory=DepthSettings)

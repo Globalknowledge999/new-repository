@@ -23,7 +23,7 @@ class ConvertOptions:
     container: str = "auto"
     crf: int = 18
     fill: str = "auto"  # auto (AI for photos, basic for video) | basic | ai
-    fill_model: str = "sd2"
+    fill_model: str = "auto"
     segment_minutes: float = 10.0
     output_dir: str = ""  # "" = a '3d' folder next to each input
     # Advanced / testing: override the profile's model or device.

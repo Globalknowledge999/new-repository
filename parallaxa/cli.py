@@ -52,7 +52,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--fill", choices=["auto", "basic", "ai"], default="auto",
                    help="gap filling: ai = Stable Diffusion inpainting (slow, best); basic = fast stretch; "
                         "auto = ai for photos, basic for video")
-    s.add_argument("--fill-model", default="sd2", help="inpainting model: sd2, sd15 or a Hugging Face id")
+    s.add_argument("--fill-model", default="auto",
+                   help="inpainting model: auto (SD 1.5, falling back to SDXL / SD 2), sd15, sdxl, sd2 or a Hugging Face id")
     s.add_argument("--fill-steps", type=int, default=20, help="diffusion steps for AI gap filling")
     s.add_argument("--edge-dilate", type=float, default=0.002, help="foreground edge growth, fraction of width")
     s.add_argument("--fill-iterations", type=int, default=8, help="hole-fill smoothing passes")

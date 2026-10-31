@@ -43,7 +43,7 @@ Last updated: 2026-10-31 (phase 4)
 - Not yet tried on Windows by the user.
 
 ## Phase 4 (AI gap filling), done in the dev container
-- Stable Diffusion 2 inpainting via diffusers (safetensors, fp16). Masks hide foreground pixels next
+- Stable Diffusion inpainting via diffusers (safetensors, fp16). Default `auto`: SD 1.5 inpainting, falling back to SDXL, then SD 2. SD 2 returned "Repository Not Found" on the user's PC on 2026-10-31. Masks hide foreground pixels next
   to each gap so the model continues the background; works on 512 px tiles at ~1024 px and only
   processes tiles with gaps; feathered composite. `--fill auto|basic|ai` (auto = ai for photos,
   basic for video). GUI: "Gap filling" setting; the preview shows basic instantly, then AI.

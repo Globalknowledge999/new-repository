@@ -162,7 +162,7 @@ class PreviewWorker(QObject):
                 if self._pending is not None:
                     return self._run()
                 if "inpaint:" + opts.fill_model not in self.engine._inpainters:
-                    self.status.emit("Loading the AI gap-filling model (the first time downloads ~2.6 GB)...")
+                    self.status.emit("Loading the AI gap-filling model (the first time downloads 2-7 GB)...")
                 self.rendered.emit(self.engine.render(opts, mode, ai=True), caption + "  |  AI gap filling")
         except Exception as e:  # show, don't crash the GUI
             self.failed.emit(f"Preview failed: {e}")

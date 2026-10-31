@@ -44,8 +44,8 @@ class Engine:
         if key not in self._models:
             from ..stereo.inpaint import load_inpainter
 
-            self.log(f"Loading AI gap-filling model {job.fill_model} on {self.device} (first use downloads ~2.6 GB) ...")
-            self._models[key] = load_inpainter(job.fill_model, self.device, self.dtype, job.fill_steps)
+            self.log(f"Loading AI gap-filling model ({job.fill_model}) on {self.device}; the first use downloads 2-7 GB ...")
+            self._models[key] = load_inpainter(job.fill_model, self.device, self.dtype, job.fill_steps, log=self.log)
         return self._models[key]
 
     def to_tensor(self, frames_u8) -> torch.Tensor:

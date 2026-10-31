@@ -33,11 +33,12 @@ checkpoints load unchanged. The streaming inference around it is Parallaxa's own
 
 | Key | Model | Licence (weights) | Used for |
 |---|---|---|---|
-| `sd2` | [Stable Diffusion 2 inpainting](https://huggingface.co/stabilityai/stable-diffusion-2-inpainting) (Stability AI) | CreativeML Open RAIL++-M (use restrictions; personal use fine) | **default gap filling for photos** (`--fill ai`/`auto`) |
-| `sd15` | [Stable Diffusion 1.5 inpainting](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-inpainting) | CreativeML OpenRAIL-M | alternative |
+| `sd15` | [Stable Diffusion 1.5 inpainting](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-inpainting) | CreativeML OpenRAIL-M (use restrictions; personal use fine) | **default** (`--fill-model auto` tries it first) |
+| `sdxl` | [SDXL 1.0 inpainting](https://huggingface.co/diffusers/stable-diffusion-xl-1.0-inpainting-0.1) | CreativeML Open RAIL++-M | first fallback; finer detail, ~7 GB, slower |
+| `sd2` | [Stable Diffusion 2 inpainting](https://huggingface.co/stabilityai/stable-diffusion-2-inpainting) | CreativeML Open RAIL++-M | last fallback. Returned "Repository Not Found" on 2026-10-31, so it may no longer be public |
 
 These are loaded with Hugging Face `diffusers` (Apache-2.0) as safetensors, which is plain data
-with no executable code, in fp16 (~2.6 GB download, ~3.5 GB VRAM).
+with no executable code, in fp16 (SD 1.5: ~2 GB download, ~3 GB VRAM).
 
 **Considered and not used:** LaMa as a TorchScript file. It's fast, but that format contains
 executable code, and the copy available is repackaged by a third party. StereoCrafter: video

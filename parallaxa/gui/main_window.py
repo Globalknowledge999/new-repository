@@ -381,7 +381,7 @@ class MainWindow(QMainWindow):
             eye_mode=self.eye_combo.currentData(), profile=self.profile_combo.currentData(),
             height=self.height_combo.currentData(), codec=self.codec_combo.currentData(),
             container=self.container_combo.currentData(), output_dir=self.output_edit.text().strip(),
-            fill=self.fill_combo.currentData(), fill_model=self._advanced.get("fill_model", "sd2"),
+            fill=self.fill_combo.currentData(), fill_model=self._advanced.get("fill_model", "auto"),
             model=self._advanced.get("model", ""), device=self._advanced.get("device", "auto"))
 
     def apply_options(self, o: ConvertOptions) -> None:
