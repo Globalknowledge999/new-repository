@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Parallaxa</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161c30"/>
+      <stop offset="1" stop-color="#263256"/>
+    </linearGradient>
+    <clipPath id="left"><circle cx="210" cy="256" r="128"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="210" cy="256" r="128" fill="#ff545c"/>
+  <circle cx="302" cy="256" r="128" fill="#26c8de"/>
+  <circle cx="302" cy="256" r="128" fill="#f6f3ec" clip-path="url(#left)"/>
+</svg>

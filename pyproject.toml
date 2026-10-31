@@ -36,5 +36,9 @@ parallaxa-gui = "parallaxa.gui.app:main"
 [tool.setuptools.packages.find]
 include = ["parallaxa*"]
 
+[tool.setuptools.package-data]
+parallaxa = ["assets/*"]
+"parallaxa.third_party.video_depth_anything" = ["LICENSE"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

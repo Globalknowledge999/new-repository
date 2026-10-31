@@ -27,7 +27,8 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName=Parallaxa
-UninstallDisplayIcon={app}\venv\Scripts\parallaxa-gui.exe
+UninstallDisplayIcon={app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico
+SetupIconFile=..\parallaxa\assets\parallaxa.ico
 LicenseFile=..\LICENSE
 
 [Tasks]
@@ -44,9 +45,9 @@ Source: "..\LICENSE"; DestDir: "{app}\installer\app"; Flags: ignoreversion
 Source: "..\parallaxa\*"; DestDir: "{app}\installer\app\parallaxa"; Excludes: "__pycache__,*.pyc"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{group}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"
+Name: "{group}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico"
 Name: "{group}\Uninstall Parallaxa"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; Tasks: desktopicon
+Name: "{userdesktop}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico"; Tasks: desktopicon
 
 [Run]
 ; Visible console so the long PyTorch download shows progress. Shortcuts and the uninstall entry

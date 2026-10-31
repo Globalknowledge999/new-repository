@@ -75,3 +75,13 @@ def test_json_progress_reports_eta(capsys):
     p.update(10)
     ev = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert ev["eta_s"] is not None and ev["eta_s"] > 0
+
+
+def test_logo_assets_present():
+    from pathlib import Path
+
+    assets = Path(__file__).resolve().parents[1] / "parallaxa" / "assets"
+    ico = Image.open(assets / "parallaxa.ico")
+    assert {(16, 16), (32, 32), (256, 256)} <= set(ico.info["sizes"])
+    assert Image.open(assets / "logo-512.png").size == (512, 512)
+    assert "<svg" in (assets / "logo.svg").read_text()

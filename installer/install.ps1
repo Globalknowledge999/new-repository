@@ -201,6 +201,7 @@ try {
 
     # ---------------------------------------------------------------- shortcuts, uninstaller
     $gui = Join-Path $venv "Scripts\parallaxa-gui.exe"
+    $icon = Join-Path $venv "Lib\site-packages\parallaxa\assets\parallaxa.ico"
     if ((Join-Path $PSScriptRoot "uninstall.ps1") -ne (Join-Path $InstallDir "uninstall.ps1")) {
         Copy-Item (Join-Path $PSScriptRoot "uninstall.ps1") (Join-Path $InstallDir "uninstall.ps1") -Force -ErrorAction Stop
     }
@@ -214,6 +215,7 @@ try {
             $lnk.TargetPath = $gui
             $lnk.WorkingDirectory = [Environment]::GetFolderPath("MyPictures")
             $lnk.Description = "Convert 2D photos and videos to 3D"
+            if (Test-Path $icon) { $lnk.IconLocation = "$icon,0" }
             $lnk.Save()
         }
         $un = $shell.CreateShortcut((Join-Path $menu "Uninstall Parallaxa.lnk"))
@@ -230,7 +232,7 @@ try {
         Set-ItemProperty $key DisplayVersion $version
         Set-ItemProperty $key Publisher "Parallaxa (personal project)"
         Set-ItemProperty $key InstallLocation $InstallDir
-        Set-ItemProperty $key DisplayIcon $gui
+        Set-ItemProperty $key DisplayIcon $(if (Test-Path $icon) { $icon } else { $gui })
         Set-ItemProperty $key UninstallString "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $InstallDir 'uninstall.ps1')`""
         Set-ItemProperty $key NoModify 1
         Set-ItemProperty $key NoRepair 1

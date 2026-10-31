@@ -1,3 +1,5 @@
+<p align="center"><img src="parallaxa/assets/logo.svg" width="128" alt="Parallaxa logo"></p>
+
 # Parallaxa
 
 Parallaxa converts ordinary 2D photos and videos into stereoscopic 3D on your own GPU. Nothing is
