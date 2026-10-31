@@ -37,7 +37,7 @@ Source: "..\pyproject.toml"; DestDir: "{app}\installer\app"; Flags: ignoreversio
 Source: "..\README.md"; DestDir: "{app}\installer\app"; Flags: ignoreversion
 Source: "..\MODELS.md"; DestDir: "{app}\installer\app"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}\installer\app"; Flags: ignoreversion
-Source: "..\parallaxa\*"; DestDir: "{app}\installer\app\parallaxa"; Excludes: "__pycache__\*,*.pyc"; Flags: ignoreversion recursesubdirs
+Source: "..\parallaxa\*"; DestDir: "{app}\installer\app\parallaxa"; Excludes: "__pycache__,*.pyc"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{group}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userpics}"
