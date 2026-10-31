@@ -64,7 +64,7 @@ def test_preview_engine_modes(tmp_path, scene):
     opts = ConvertOptions(model="debug-gradient", fill_model="debug-tiny")
     eng.load(p, "photo", opts)
     h, w = img.shape[:2]
-    assert eng.wants_ai(opts, "photo") and not eng.wants_ai(opts, "video")
+    assert not eng.wants_ai(opts, "photo") and eng.wants_ai(ConvertOptions(fill="ai"), "video")
     for mode in MODES:
         out = eng.render(opts, mode, ai=mode == "anaglyph")
         assert len(out) == (2 if mode == "wiggle" else 1)
@@ -131,7 +131,7 @@ def test_main_window_smoke(app, tmp_path, sample_video):
     store = PresetStore(tmp_path / "cfg")
     store.save_last(ConvertOptions(fill_model="debug-tiny"))
     win = MainWindow(presets=store, preview_device="cpu")
-    assert win.options().fill_model == "debug-tiny" and win.options().fill == "auto"
+    assert win.options().fill_model == "debug-tiny" and win.options().fill == "basic"
     win.add_paths([str(sample_video)])
     assert win.table.rowCount() == 1 and win.queue_stack.currentIndex() == 1
     win.apply_options(store.get("Strong pop-out", base=win.options()))

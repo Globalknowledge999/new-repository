@@ -35,7 +35,7 @@ class Engine:
     def inpainter(self, kind: str):
         """The generative gap filler for this kind of input, or None for basic filling."""
         job = self.job
-        mode = job.fill if job.fill != "auto" else ("ai" if kind == "photo" else "basic")
+        mode = "basic" if job.fill == "auto" else job.fill  # "auto" (older settings) = basic
         if mode != "ai":
             return None
         key = f"inpaint:{job.fill_model}:{job.fill_steps}"

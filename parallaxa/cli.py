@@ -49,9 +49,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="0..1 depth placed at screen level; lower = more pop-out (default 0.6)")
     s.add_argument("--eye-mode", choices=["symmetric", "right", "left"], default="symmetric",
                    help="synthesise both eyes, or keep the original as the left/right eye")
-    s.add_argument("--fill", choices=["auto", "basic", "ai"], default="auto",
-                   help="gap filling: ai = Stable Diffusion inpainting (slow, best); basic = fast stretch; "
-                        "auto = ai for photos, basic for video")
+    s.add_argument("--fill", choices=["basic", "ai", "auto"], default="basic",
+                   help="gap filling: basic (fast, default) or ai = Stable Diffusion inpainting (~4x slower per photo; "
+                        "can help close-ups at high strength). 'auto' is kept for old settings and means basic")
     s.add_argument("--fill-model", default="auto",
                    help="inpainting model: auto (SD 1.5, falling back to SDXL / SD 2), sd15, sdxl, sd2 or a Hugging Face id")
     s.add_argument("--fill-steps", type=int, default=14, help="diffusion steps for AI gap filling (fewer = faster)")

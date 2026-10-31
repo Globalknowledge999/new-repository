@@ -77,8 +77,9 @@ class JobSettings:
     batch_size: int = 4
     overwrite: bool = False
     # Gap filling: "basic" (fast, depth-aware stretch), "ai" (Stable Diffusion inpainting on top),
-    # or "auto" (ai for photos, basic for video).
-    fill: str = "auto"
+    # ("auto", from older settings, means basic). On an RTX 3060, AI filling looked no different to
+    # basic on a test photo and took ~30 s instead of ~7 s, so basic is the default.
+    fill: str = "basic"
     fill_model: str = "auto"
     fill_steps: int = 14
     stereo: StereoSettings = field(default_factory=StereoSettings)

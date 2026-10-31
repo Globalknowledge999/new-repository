@@ -16,7 +16,7 @@ objects, and packs the result into common 3D formats. The default output is **fu
 | 1 | Command-line converter: photos + videos, all output formats, audio passthrough | done |
 | 2 | Video Depth Anything for temporally stable video depth; resumable segmented processing for long films; speed work | done |
 | 3 | Windows desktop app: drag-and-drop batch queue, live 3D preview, progress/ETA, stop/resume, presets | done |
-| 4 | AI gap filling with Stable Diffusion inpainting (default for photos, optional for video) | **done (this release)** |
+| 4 | Optional AI gap filling with Stable Diffusion inpainting (photos and video) | **done (this release)** |
 | 5 | One-click Windows installer (FFmpeg, CUDA PyTorch, models downloaded on first run) | planned |
 
 ---
@@ -195,10 +195,12 @@ frame-packing SEI.
   Everything nearer than this pops *out* of the screen, everything farther sits *behind* it.
   `1.0` puts the whole scene behind the screen (the most comfortable option). `0.0` makes
   everything pop out.
-* `--fill auto|basic|ai` controls gap filling. `ai` repaints the gaps beside foreground objects
-  with a **Stable Diffusion inpainting** model, which gives real texture instead of stretched
-  background. It's the default for photos (`auto`). It's off for video because it takes a few
-  seconds per frame and can flicker. Turn it on with `--fill ai` for short clips.
+* `--fill basic|ai` controls gap filling. `basic` (the default) fills each gap from the background
+  beside it, using depth to pick the right side. `ai` repaints the gaps with a **Stable Diffusion
+  inpainting** model, which gives real texture instead of stretched background. On a test photo
+  the two looked the same and AI took about 4× as long, so it's an option rather than the
+  default. Try it on close-ups at high strength, where the gaps are widest. On video it takes
+  seconds per frame and can flicker.
   `--fill-model auto` (the default) uses SD 1.5 inpainting (~2 GB download). If that repository
   is unavailable, it falls back to SDXL inpainting (~7 GB, slower, finer) and then SD 2. Choose
   one directly with `sd15`, `sdxl`, `sd2` or any Hugging Face inpainting model id.

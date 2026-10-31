@@ -317,9 +317,8 @@ class MainWindow(QMainWindow):
         form.addRow("Depth quality", self.profile_combo)
         self.height_combo = self._combo(HEIGHTS)
         form.addRow("Resolution (per eye)", self.height_combo)
-        self.fill_combo = self._combo([("auto", "Automatic (AI for photos, basic for video)"),
-                                       ("ai", "AI inpainting (best, slow; Stable Diffusion)"),
-                                       ("basic", "Basic (fast)")])
+        self.fill_combo = self._combo([("basic", "Basic (fast)"),
+                                       ("ai", "AI inpainting (slow; for close-ups at high strength)")])
         self.fill_combo.setToolTip("How the gaps that open up beside foreground objects are filled.")
         form.addRow("Gap filling", self.fill_combo)
         self.eye_combo = self._combo([("symmetric", "Shift both eyes (smallest gaps)"),

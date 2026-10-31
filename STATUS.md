@@ -51,9 +51,9 @@ Last updated: 2026-10-31 (phase 4)
 - On the RTX 3060: SD 1.5 inpainting loads; ~1.7 s per 512 px tile; G1.jpg at strength 5 = 12 tiles
   in 20.5 s, 29.8 s total. An earlier 7 s per tile was caused by cuDNN autotuning, which is now on
   for video only and off during AI fill.
-- Waiting on: the user's quality verdict (AI vs basic), which decides the photo default.
+- User's verdict on G1.jpg at strength 5: AI and basic look the same, so basic is the default for
+  photos too; AI fill stays available as `--fill ai` or in the app's Gap filling setting.
 
 ## Next
 - User to try the app on Windows (drag-drop, preview speed with DA-V2 Large, stop/resume)
-- User to try AI gap filling on photos (quality, time per photo)
 - Then phase 5: one-click Windows installer

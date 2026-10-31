@@ -62,7 +62,7 @@ class PreviewEngine:
         self.raw_depth: torch.Tensor | None = None
 
     def wants_ai(self, opts: ConvertOptions, kind: str) -> bool:
-        return opts.fill == "ai" or (opts.fill == "auto" and kind == "photo")
+        return opts.fill == "ai"
 
     def inpainter(self, opts: ConvertOptions):
         key = f"inpaint:{opts.fill_model}"
