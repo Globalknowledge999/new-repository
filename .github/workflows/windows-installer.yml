@@ -30,7 +30,7 @@ jobs:
           if (-not $iscc) { Write-Output "::error::ISCC.exe not found after installing Inno Setup"; exit 1 }
           Write-Output "Using $($iscc.FullName)"
           $ver = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
-          $out = & $iscc.FullName "/DAppVersion=$ver" installer\parallaxa.iss 2>&1 | Out-String
+          $out = & $iscc.FullName "/DAppVersion=$ver" "/DBuildNo=$env:GITHUB_RUN_NUMBER" installer\parallaxa.iss 2>&1 | Out-String
           $code = $LASTEXITCODE
           Write-Output $out
           if ($code -ne 0) {
@@ -42,7 +42,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Parallaxa-Setup
+          name: Parallaxa-Setup-build${{ github.run_number }}
           path: dist/*.exe
 
       - name: Attach to the GitHub Release (tags only)

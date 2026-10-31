@@ -5,6 +5,9 @@
 #ifndef AppVersion
   #define AppVersion "0.5.0"
 #endif
+#ifndef BuildNo
+  #define BuildNo "local"
+#endif
 
 [Setup]
 AppId={{58217CE4-5D28-4D24-8F70-FF33D8F2CF30}
@@ -15,7 +18,8 @@ DefaultDirName={localappdata}\Programs\Parallaxa
 DefaultGroupName=Parallaxa
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
-OutputBaseFilename=Parallaxa-Setup-{#AppVersion}
+; The build number tells setups from different CI runs apart.
+OutputBaseFilename=Parallaxa-Setup-{#AppVersion}-build{#BuildNo}
 OutputDir=..\dist
 Compression=lzma2
 SolidCompression=yes
