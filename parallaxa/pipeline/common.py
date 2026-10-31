@@ -61,6 +61,8 @@ def collect_inputs(paths: list[str], recursive: bool = False) -> list[tuple[Path
         else:
             raise FileNotFoundError(p)
         for f in files:
+            if any(part.endswith(".parallaxa-work") for part in f.parts):
+                continue
             if not f.is_file() or any(tag in f.stem for tag in ("_3D_", "_RGBD", "_DEPTH", ".partial")) or f.stem.endswith("_3D"):
                 continue
             ext = f.suffix.lower()

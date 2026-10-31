@@ -138,13 +138,19 @@ def probe(path: str | Path) -> VideoInfo:
 class FrameReader:
     """Decode a video to RGB24 frames of a given size, read in batches on a background thread."""
 
-    def __init__(self, info: VideoInfo, width: int, height: int, batch: int = 4, hwaccel: bool = False, queue_size: int = 4):
+    def __init__(self, info: VideoInfo, width: int, height: int, batch: int = 4, hwaccel: bool = False, queue_size: int = 4,
+                 start_frame: int = 0):
         self.width, self.height, self.batch = width, height, batch
-        vf = f"scale={width}:{height}:flags=lanczos:in_color_matrix={info.matrix}:in_range={'pc' if info.color_range == 'pc' else 'tv'},format=rgb24"
+        # fps= makes the stream constant-rate (VFR phone videos stay in sync with audio); trim= then
+        # skips to an exact frame index when resuming, discarding frames inside ffmpeg (no pipe cost).
+        vf = f"fps={info.fps}"
+        if start_frame:
+            vf += f",trim=start_frame={start_frame},setpts=PTS-STARTPTS"
+        vf += f",scale={width}:{height}:flags=lanczos:in_color_matrix={info.matrix}:in_range={'pc' if info.color_range == 'pc' else 'tv'},format=rgb24"
         cmd = [ffmpeg_bin(), "-nostdin", "-hide_banner", "-loglevel", "error"]
         if hwaccel:
             cmd += ["-hwaccel", "auto"]
-        cmd += ["-i", str(info.path), "-map", "0:v:0", "-vf", vf, "-fps_mode", "cfr", "-r", str(info.fps), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
+        cmd += ["-i", str(info.path), "-map", "0:v:0", "-vf", vf, "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
         self._proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=_NO_WINDOW)
         self._queue: Queue = Queue(maxsize=queue_size)
         self._error: str | None = None
@@ -230,8 +236,8 @@ def container_for(info: VideoInfo, container: str) -> str:
     return {"mkv": "mkv", "webm": "mkv", "mov": "mov"}.get(ext, "mp4")
 
 
-class FrameWriter:
-    """Encode RGB24 frames via ffmpeg, copying audio (and subtitles/chapters where possible) from the source."""
+class SegmentWriter:
+    """Encode RGB24 frames to a video-only file. Audio etc. are added when segments are joined (mux_segments)."""
 
     def __init__(
         self,
@@ -248,24 +254,16 @@ class FrameWriter:
     ):
         self.out_path = out_path
         self.frame_shape = (height, width, 3)
-        ext = out_path.suffix.lower().lstrip(".")
-        container = "mkv" if ext in ("mkv", "webm") else ("mov" if ext == "mov" else "mp4")
         codec, enc = choose_encoder(codec, encoder, width)
         self.codec, self.encoder = codec, enc
 
-        matrix = info.matrix
         cmd = [
             ffmpeg_bin(), "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
             "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{width}x{height}", "-framerate", str(info.fps), "-i", "-",
-            "-i", str(info.path),
-            "-map", "0:v:0", "-map", "1:a?",
+            "-map", "0:v:0",
         ]
-        if container == "mkv":
-            cmd += ["-map", "1:s?", "-c:s", "copy"]
-        cmd += ["-map_metadata", "1", "-map_chapters", "1"]
-
         # Colour: convert back with the same matrix used for decoding and tag the stream.
-        out_matrix = "bt2020" if matrix == "bt2020" else matrix
+        out_matrix = info.matrix
         cmd += ["-vf", f"scale=out_color_matrix={out_matrix}:out_range=tv:flags=bicubic,format=yuv420p"]
         tags = {"bt709": ("bt709", "bt709", "bt709"), "bt601": ("smpte170m", "smpte170m", "smpte170m"), "bt2020": ("bt2020nc", "bt2020", "bt709")}
         cs, prim, trc = tags.get(out_matrix, tags["bt709"])
@@ -280,19 +278,7 @@ class FrameWriter:
                 cmd += ["-x264-params", f"frame-packing={_X264_FRAME_PACKING[layout]}"]
         else:  # libx265
             cmd += ["-preset", preset or "medium", "-crf", str(crf + 2), "-x265-params", "log-level=error"]
-        if codec == "hevc" and container in ("mp4", "mov"):
-            cmd += ["-tag:v", "hvc1"]  # plays on Apple devices / Vision Pro
-        if container == "mkv" and layout in _MKV_STEREO_MODE:
-            cmd += ["-metadata:s:v:0", f"stereo_mode={_MKV_STEREO_MODE[layout]}"]
-
-        ok = _AUDIO_COPY_OK[container]
-        if ok is None or all(c in ok for c in info.audio_codecs):
-            cmd += ["-c:a", "copy"]
-        else:
-            cmd += ["-c:a", "aac", "-b:a", "320k"]
-        if container in ("mp4", "mov"):
-            cmd += ["-movflags", "+faststart"]
-        cmd += [str(out_path)]
+        cmd += ["-f", "mp4", str(out_path)]
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         self.cmd = cmd
@@ -344,3 +330,36 @@ class FrameWriter:
         self._queue.put(None)
         self._thread.join(timeout=5)
         self._proc.wait()
+
+
+def mux_segments(segments: list[Path], info: VideoInfo, out_path: Path, layout: str, codec: str) -> None:
+    """Join video-only segments losslessly and add the source's audio, subtitles (MKV), chapters and metadata."""
+    ext = out_path.suffix.lower().lstrip(".")
+    container = "mkv" if ext in ("mkv", "webm") else ("mov" if ext == "mov" else "mp4")
+    listing = out_path.with_name(out_path.name + ".segments.txt")
+    # concat demuxer syntax: one "file '<path>'" per line, single quotes escaped as '\''
+    listing.write_text("".join("file '" + str(p.resolve()).replace("'", "'\\''") + "'\n" for p in segments), encoding="utf-8")
+    cmd = [ffmpeg_bin(), "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+           "-f", "concat", "-safe", "0", "-i", str(listing), "-i", str(info.path),
+           "-map", "0:v:0", "-map", "1:a?"]
+    if container == "mkv":
+        cmd += ["-map", "1:s?", "-c:s", "copy"]
+    cmd += ["-map_metadata", "1", "-map_chapters", "1", "-c:v", "copy"]
+    if codec == "hevc" and container in ("mp4", "mov"):
+        cmd += ["-tag:v", "hvc1"]  # plays on Apple devices / Vision Pro
+    if container == "mkv" and layout in _MKV_STEREO_MODE:
+        cmd += ["-metadata:s:v:0", f"stereo_mode={_MKV_STEREO_MODE[layout]}"]
+    ok = _AUDIO_COPY_OK[container]
+    if ok is None or all(c in ok for c in info.audio_codecs):
+        cmd += ["-c:a", "copy"]
+    else:
+        cmd += ["-c:a", "aac", "-b:a", "320k"]
+    if container in ("mp4", "mov"):
+        cmd += ["-movflags", "+faststart"]
+    cmd += ["-f", {"mkv": "matroska", "mov": "mov", "mp4": "mp4"}[container], str(out_path)]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, creationflags=_NO_WINDOW)
+        if r.returncode != 0:
+            raise RuntimeError(f"ffmpeg mux failed ({r.returncode}): {r.stderr.strip()}")
+    finally:
+        listing.unlink(missing_ok=True)

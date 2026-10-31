@@ -17,9 +17,10 @@ def fmt_time(seconds: float) -> str:
 
 
 class Progress:
-    def __init__(self, total: int, label: str, mode: str = "text", unit: str = "frames", min_interval: float = 0.5):
+    def __init__(self, total: int, label: str, mode: str = "text", unit: str = "frames", min_interval: float = 0.5,
+                 initial: int = 0):
         self.total, self.label, self.mode, self.unit = total, label, mode, unit
-        self.done = 0
+        self.done = self.initial = initial  # initial: already done before this run (resume); excluded from the rate
         self.start = time.perf_counter()
         self._last = 0.0
         self._emitted_at = -1
@@ -35,7 +36,7 @@ class Progress:
     @property
     def rate(self) -> float:
         el = time.perf_counter() - self.start
-        return self.done / el if el > 0 else 0.0
+        return (self.done - self.initial) / el if el > 0 else 0.0
 
     @property
     def eta(self) -> float:

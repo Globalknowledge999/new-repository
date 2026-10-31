@@ -21,4 +21,5 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 The neural network weights downloaded at run time are NOT covered by this
-licence; see MODELS.md.
+licence; see MODELS.md. Code under parallaxa/third_party/ keeps its own licence
+(Apache-2.0 for video_depth_anything; see the LICENSE file in that folder).

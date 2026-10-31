@@ -51,6 +51,11 @@ def run(model_name: str, device_name: str, height: int, width: int, depth_res: i
     ih, iw = inference_size(height, width, depth_res)
     print(f"\nmodel {model_name}: {batch}x {width}x{height} frames -> network input {iw}x{ih}")
     results = []
+    est0 = load_depth_model(model_name, device, default_dtype(device), depth_res)
+    if getattr(est0, "temporal", False):
+        _bench_temporal(est0, frames, device, runs)
+        return
+    del est0
     for dt in ([default_dtype(device), torch.float32] if device.type == "cuda" else [torch.float32]):
         est = load_depth_model(model_name, device, dt, depth_res)
         tag = str(dt).split(".")[-1]
@@ -69,5 +74,19 @@ def run(model_name: str, device_name: str, height: int, width: int, depth_res: i
     print(f"{'precision':10s} {'attention':10s} {'resize':>10s} {'network':>10s} {'full':>10s}   (ms per frame)")
     for tag, attn, pre, fwd, full in results:
         print(f"{tag:10s} {attn:10s} {1000 * pre / batch:10.1f} {1000 * fwd / batch:10.1f} {1000 * full / batch:10.1f}")
+    if device.type == "cuda":
+        print(f"\npeak VRAM {torch.cuda.max_memory_allocated() / 2**30:.2f} GB")
+
+
+def _bench_temporal(est, frames: torch.Tensor, device: torch.device, runs: int) -> None:
+    """Video Depth Anything: time whole 32-frame windows; each window yields 22 new frames."""
+    from .depth.video_depth_anything import STEP, WINDOW
+
+    stream = est.stream()
+    x = stream._prep(frames[:1]).expand(WINDOW, -1, -1, -1).contiguous()
+    window = list(x)
+    win = _time(lambda: stream._run(window), device, max(3, runs // 3))
+    print(f"window of {WINDOW} frames at {x.shape[-1]}x{x.shape[-2]}: {1000 * win:.0f} ms "
+          f"-> {1000 * win / STEP:.1f} ms per output frame (fp16 autocast: {stream.autocast})")
     if device.type == "cuda":
         print(f"\npeak VRAM {torch.cuda.max_memory_allocated() / 2**30:.2f} GB")

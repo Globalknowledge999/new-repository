@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("-f", "--format", type=_formats, default=("sbs",),
                    help="comma list: sbs (default), hsbs, tb, htb, anaglyph, rgbd; photos also mpo, depth")
     c.add_argument("--profile", choices=["auto", *PROFILES], default="auto",
-                   help="auto = Large model for photos, Small model for video")
+                   help="auto = DA-V2 Large for photos, Video Depth Anything Small (balanced) for video")
     c.add_argument("--model", default=None, help="override depth model (see 'parallaxa models')")
     c.add_argument("--depth-res", type=int, default=None, help="depth inference short side in px (multiple of 14)")
 
@@ -72,6 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--overwrite", action="store_true")
     r.add_argument("--progress", choices=["text", "json", "none"], default="text")
     r.add_argument("--timing", action="store_true", help="video: print time spent per pipeline stage")
+    r.add_argument("--segment-minutes", type=float, default=10.0,
+                   help="video is written in segments of this length; an interrupted run resumes from the last one")
 
     sub.add_parser("models", help="list depth models and their licences")
     sub.add_parser("info", help="show GPU / FFmpeg / encoder status")
@@ -99,9 +101,14 @@ def _job_from_args(a) -> JobSettings:
 
 
 def _model_for(kind: str, a) -> tuple[str, int]:
-    profile = a.profile if a.profile != "auto" else ("photo-quality" if kind == "photo" else "fast")
+    profile = a.profile if a.profile != "auto" else ("photo-quality" if kind == "photo" else "balanced")
     prof = PROFILES[profile]
-    return a.model or prof["model"], a.depth_res or prof["depth_res"]
+    model = a.model or prof["model"]
+    if kind == "photo" and model.startswith("vda-"):  # video models need a sequence; use the same-size photo model
+        model = "da2-" + model.split("-", 1)[1]
+    elif kind == "photo" and model == "debug-vda":
+        model = "debug-random"
+    return model, a.depth_res or prof["depth_res"]
 
 
 def cmd_convert(a) -> int:
@@ -133,7 +140,7 @@ def cmd_convert(a) -> int:
             if kind == "photo":
                 convert_photo(engine, src, out_dir, model, res)
             else:
-                convert_video(engine, src, out_dir, model, res, a.progress, a.timing)
+                convert_video(engine, src, out_dir, model, res, a.progress, a.timing, a.segment_minutes)
         except KeyboardInterrupt:
             log("Cancelled.")
             return 130

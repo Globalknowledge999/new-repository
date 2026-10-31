@@ -11,10 +11,11 @@ PHOTO_FORMATS = ("sbs", "hsbs", "tb", "htb", "anaglyph", "mpo", "depth", "rgbd")
 VIDEO_FORMATS = ("sbs", "hsbs", "tb", "htb", "anaglyph", "rgbd")
 
 # Named quality profiles: depth model + depth inference resolution (short side, pixels).
+# Video profiles use Video Depth Anything (temporally stable) except "fast", which is per-frame.
 PROFILES = {
     "fast": {"model": "da2-small", "depth_res": 392},
-    "balanced": {"model": "da2-base", "depth_res": 518},
-    "quality": {"model": "da2-large", "depth_res": 518},
+    "balanced": {"model": "vda-small", "depth_res": 392},
+    "quality": {"model": "vda-small", "depth_res": 518},
     "photo-quality": {"model": "da2-large", "depth_res": 700},
 }
 

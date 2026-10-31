@@ -13,8 +13,8 @@ objects, and packs the result into common 3D formats. The default output is **fu
 
 | Phase | What | State |
 |---|---|---|
-| 1 | Command-line converter: photos + videos, all output formats, audio passthrough | **done (this release)** |
-| 2 | Video Depth Anything for temporally stable video depth, chunked long-film processing, more tuning | next |
+| 1 | Command-line converter: photos + videos, all output formats, audio passthrough | done |
+| 2 | Video Depth Anything for temporally stable video depth; resumable segmented processing for long films; speed work | **done (this release)** |
 | 3 | Windows GUI (drag-drop, batch queue, live photo preview, progress/ETA, presets) | planned |
 | 4 | Optional generative high-quality fill (default for photos, optional for video) | planned |
 | 5 | One-click Windows installer (FFmpeg, CUDA PyTorch, models downloaded on first run) | planned |
@@ -177,15 +177,23 @@ frame-packing SEI.
 
 | `--profile` | Model | Depth resolution | Notes |
 |---|---|---|---|
-| `auto` (default) | DA-V2 Large for photos, DA-V2 Small for video | 700 px photos / 392 px video | On an RTX 3060, Small was 2.6× faster than Large on video with no visible difference |
-| `quality` | DA-V2 Large | 518 | |
-| `balanced` | DA-V2 Base | 518 | ~2× faster depth than Large |
-| `fast` | DA-V2 Small | 392 | Apache-2.0 model. Several times faster, softer edges |
-| `photo-quality` | DA-V2 Large | 700 | |
+| `--profile` | Model | Depth resolution | Notes |
+|---|---|---|---|
+| `auto` (default) | photos: `photo-quality`; video: `balanced` | | |
+| `balanced` | Video Depth Anything Small | 392 | **Default for video.** Temporally stable depth, Apache-2.0 |
+| `quality` | Video Depth Anything Small | 518 | The resolution VDA was trained at. Sharper, ~1.7× the depth cost |
+| `fast` | DA-V2 Small, per frame | 392 | Fastest. Depth can shimmer between frames |
+| `photo-quality` | DA-V2 Large | 700 | **Default for photos** |
 
-To override a profile, use `--model da2-small|da2-base|da2-large` (or any Hugging Face Depth
-Anything V2 model id) and `--depth-res N` (a multiple of 14; higher means more detail, slower
-and more VRAM). `parallaxa models` lists all the options.
+To override a profile, use `--model` and `--depth-res N` (a multiple of 14; higher means more
+detail, slower and more VRAM). `parallaxa models` lists all the options:
+
+* `vda-small` / `vda-base` / `vda-large`: Video Depth Anything, for video only. If you pass one
+  for a photo, it uses the same-size DA-V2 model instead. **`vda-large` won't fit in 12 GB** at
+  518 px (upstream measured 23.6 GB). `vda-base` (CC-BY-NC) is worth trying at 392 px.
+* `da2-small` / `da2-base` / `da2-large`: Depth Anything V2, per frame.
+
+To measure a model's speed and VRAM on your GPU, run `parallaxa bench --model vda-small --depth-res 392`.
 
 ### Video options
 
@@ -203,6 +211,14 @@ and more VRAM). `parallaxa models` lists all the options.
 * `--batch-size 4` sets frames per GPU step. Try 8 on a 3060 at 1080p. Lower it if you run out
   of VRAM at 4K.
 * `--progress json` writes machine-readable progress lines (the future GUI will use these).
+* `--segment-minutes 10` sets the segment length. Video is written in segments of this length
+  into a `<name>.parallaxa-work` folder next to the output. If a conversion stops (Ctrl+C, crash,
+  power cut), **run the same command again** and it continues from the last finished segment.
+  When all segments are done, they're joined without re-encoding, the audio is added, and the
+  work folder is deleted. Changing any setting between runs starts the conversion over, so
+  segments made with different settings never get mixed.
+* `--timing` prints how many milliseconds each stage takes per frame. It's useful for finding
+  what's slow.
 
 ---
 
@@ -215,10 +231,11 @@ Please report back:
    with `-f sbs,anaglyph,depth`. How do the depth maps look? Are object edges clean, or do you
    see halos and stretching? Do faces look flat or rounded? Note the time per photo printed in
    the log.
-3. **Video:** convert a 1 to 2 minute 1080p clip with the defaults. Report the frames/s shown in
-   the progress line, whether audio stays in sync, and whether the depth flickers or "breathes".
-   Some flicker is expected until phase 2 brings Video Depth Anything.
-4. Try `--profile fast` and `--batch-size 8` on the same clip and compare speed.
+3. **Video:** convert a 1 to 2 minute clip with the defaults (Video Depth Anything). Report the
+   frames/s, whether audio stays in sync, and whether depth still flickers or "breathes"
+   compared with `--profile fast` (per-frame depth).
+4. **Resume:** start a longer video, press Ctrl+C after a segment or two, run the same command
+   again, and check the result plays smoothly across the join.
 5. Watch the result in your headset or player. Is `--strength 3 --convergence 0.6` comfortable,
    too weak, or too strong?
 
@@ -233,11 +250,17 @@ decode (FFmpeg, thread) ─► depth model (GPU) ─► normalise ─► stereo 
                                                                                                     ▲ audio/subs/chapters copied from source
 ```
 
-1. **Depth.** Depth Anything V2 predicts relative inverse depth (bigger means nearer) at a
-   reduced resolution (518 to 700 px on the short side, in multiples of the ViT's 14 px patch).
-   The prediction is upsampled to the frame size and mapped to 0..1 using the 2nd and 98th
-   percentiles, so a few outlier pixels can't compress the whole scene. On video, that range is
-   smoothed between frames (`--temporal-alpha`) so the 3D strength doesn't pump.
+1. **Depth.** The network predicts relative inverse depth (bigger means nearer) at a reduced
+   resolution (392 to 700 px on the short side, in multiples of the ViT's 14 px patch). Photos
+   use Depth Anything V2 one image at a time. Video uses **Video Depth Anything**, which looks at
+   32 frames together. Each window overlaps the previous one by 10 frames. Two anchor frames
+   (the first frame of the video and one from the previous window) keep the depth scale
+   consistent from window to window, and the 8 overlapping frames are cross-faded. This removes
+   most of the shimmer that per-frame depth has. Parallaxa runs this as a stream, emitting
+   each depth map as soon as it is final (at most ~2 windows of delay). The depth is then
+   upsampled to the frame size and mapped to 0..1 using the 2nd and 98th percentiles, so a few
+   outlier pixels can't compress the whole scene. That range is also smoothed between frames
+   (`--temporal-alpha`) so the 3D strength doesn't pump.
 2. **Disparity.** `disparity = strength% × width × (depth − convergence)`. Before this step, near
    objects are grown by a few pixels (a max filter). Depth networks blur depth across object
    silhouettes. Without the growth, the edge pixels of a person get "half" depth and stretch
@@ -256,30 +279,36 @@ decode (FFmpeg, thread) ─► depth model (GPU) ─► normalise ─► stereo 
    shift.
 
 Video is streamed in small batches between three threads (decode → GPU → encode). Memory use
-stays flat whatever the film length.
+stays flat whatever the film length. Output is written in resumable segments (see
+`--segment-minutes`). On resume, decoding restarts at the exact frame, using FFmpeg's `trim`
+filter. Video Depth Anything gets a 64-frame warm-up plus the saved anchor frame, so the depth
+scale stays continuous across the join.
 
 ### Project layout
 
 ```
 parallaxa/
-  cli.py                 command-line entry point (parallaxa convert / models / info)
+  cli.py                 command-line entry point (parallaxa convert / models / info / bench)
+  bench.py               GPU / model speed measurements
   config.py              settings dataclasses, quality profiles, file types
   device.py              cuda/cpu selection, fp16 on GPU
   progress.py            progress + ETA (text or JSON lines)
   depth/
     base.py              DepthEstimator interface, robust (temporal) normaliser
     depth_anything_v2.py Depth Anything V2 wrapper (+ tiny offline test network)
+    video_depth_anything.py  streaming windowed inference for Video Depth Anything
     __init__.py          model registry
+  third_party/video_depth_anything/   upstream network definition (Apache-2.0, see its LICENSE)
   stereo/
     dibr.py              disparity, z-buffered forward warp, hole filling, renderer
     formats.py           SBS / half / TB / anaglyph / RGB-D packing
   io/
     image_io.py          JPG/PNG/WebP/HEIC load, save, 16-bit depth PNG, MPO writer
-    video_io.py          ffprobe, threaded FFmpeg decode/encode, encoder choice, audio rules
+    video_io.py          ffprobe, threaded FFmpeg decode/encode, segment join + audio mux
   pipeline/
     common.py            engine (device + cached models), batch file discovery
     photo.py             photo conversion
-    video.py             streaming video conversion
+    video.py             streaming, segmented, resumable video conversion
 tests/                   unit + end-to-end tests (run offline with debug models)
 ```
 
@@ -296,10 +325,12 @@ tests/                   unit + end-to-end tests (run offline with debug models)
 * **`CUDA available: False`**: the CPU-only PyTorch got installed. Reinstall it inside the venv
   from the `cu128` index (setup step 3).
 
-### Known limitations of phase 1
+### Known limitations
 
-* Video depth is per-frame DA-V2 with only the depth *range* smoothed over time, so some flicker
-  is possible. Video Depth Anything in phase 2 addresses this.
+* Video Depth Anything Large doesn't fit in 12 GB of VRAM. Small is the practical choice on an
+  RTX 3060.
+* A resumed conversion may show a very slight change in depth scale at the join. The saved
+  anchor keeps this small.
 * Processing is 8-bit SDR. HDR (PQ/HLG) sources are converted without tone mapping and will look
   washed out (you get a warning).
 * Variable-frame-rate phone videos are converted to constant frame rate, which keeps audio in sync.

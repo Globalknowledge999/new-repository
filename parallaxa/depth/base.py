@@ -21,6 +21,25 @@ class DepthEstimator(ABC):
         """frames: (B, 3, H, W) float in [0, 1] on self.device. Returns (B, H, W) float32."""
 
 
+class PerFrameStream:
+    """Gives single-image models the same push()/flush() interface as temporal ones."""
+
+    def __init__(self, estimator: DepthEstimator):
+        self.est = estimator
+
+    def push(self, frames: torch.Tensor) -> torch.Tensor:
+        return self.est.predict(frames)
+
+    def flush(self) -> torch.Tensor:
+        return torch.empty(0)
+
+    def state(self) -> dict:
+        return {}
+
+    def seed(self, state: dict) -> None:
+        pass
+
+
 class DepthNormalizer:
     """Map raw relative depth to [0, 1] (1 = nearest) using robust percentiles.
 
@@ -36,6 +55,12 @@ class DepthNormalizer:
 
     def reset(self) -> None:
         self._lo = self._hi = None
+
+    def state(self) -> list[float | None]:
+        return [self._lo, self._hi]
+
+    def restore(self, state: list[float | None]) -> None:
+        self._lo, self._hi = state
 
     def __call__(self, depth: torch.Tensor) -> torch.Tensor:
         out = torch.empty_like(depth, dtype=torch.float32)

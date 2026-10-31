@@ -1,9 +1,14 @@
 # Project status / hand-over notes
 
-Last updated: 2026-10-31
+Last updated: 2026-10-31 (phase 2)
 
 ## Done
-- Phase 1 (CLI converter) is committed and pushed. 22 tests pass on CPU with offline debug models.
+- Phase 1 (CLI converter).
+- Phase 2: Video Depth Anything (vendored network, our own streaming windowed inference that matches
+  the upstream schedule exactly; tested against a port of the upstream algorithm), video default =
+  vda-small@392; segmented output in <name>.parallaxa-work with resume (frame-exact via fps+trim
+  filters; VDA warm-up + saved anchor); `bench` supports VDA. 40 tests pass offline.
+- Phase 2 not yet verified on real VDA weights (Hugging Face is blocked in the dev container).
 
 ## User's test PC (Windows 11)
 - RTX 3060 12 GB, NVIDIA driver 591.59 (CUDA 13.1), Python 3.11.9 venv at `C:\Users\Simon\parallaxa\.venv`
@@ -22,8 +27,7 @@ Last updated: 2026-10-31
 - First real-model results: photo depth quality, time per photo, video fps, flicker, comfort
   of `--strength 3 --convergence 0.6`
 
-## Next: phase 2
-- Video Depth Anything (Small Apache-2.0 / Large CC-BY-NC) for temporally stable depth,
-  with sliding windows that overlap and align scale/shift between chunks
-- Chunked processing for long films; resume support
-- Tune defaults from the user's feedback (strength, convergence, edge dilation)
+## Next
+- User to test phase 2 on the RTX 3060: `parallaxa bench --model vda-small`, speed + flicker vs
+  `--profile fast`, Ctrl+C / resume
+- Then phase 3: Windows GUI (PySide6), using `--progress json` events
