@@ -137,3 +137,27 @@ def test_main_window_smoke(app, tmp_path, sample_video):
     win.strength.changed.emit(2.5)
     assert store.load_last().strength == 2.5  # settings persist
     win.close()
+
+
+def test_sliders_reset_when_files_are_added(app, tmp_path, sample_video, scene):
+    from PIL import Image
+
+    from parallaxa.gui.main_window import MainWindow
+
+    win = MainWindow(presets=PresetStore(tmp_path / "cfg"), preview_device="cpu")
+    win.add_paths([str(sample_video)])
+    win.strength.setValue(7.0)
+    win.convergence.setValue(0.1)
+    Image.fromarray(scene[0]).save(tmp_path / "new.png")
+    win.add_paths([str(tmp_path / "new.png")])
+    assert (win.strength.value(), win.convergence.value()) == (3.0, 0.6)
+    # with a preset chosen, its values are the defaults
+    i = win.preset_combo.findData("Strong pop-out")
+    win.preset_combo.setCurrentIndex(i)
+    win._preset_chosen(i)
+    win.strength.setValue(7.0)
+    (tmp_path / "more").mkdir()
+    Image.fromarray(scene[0]).save(tmp_path / "more" / "b.png")
+    win.add_paths([str(tmp_path / "more")])
+    assert (win.strength.value(), win.convergence.value()) == (4.0, 0.35)
+    win.close()

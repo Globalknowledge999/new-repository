@@ -219,12 +219,17 @@ class MainWindow(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidget(self._build_settings())
+        settings = self._build_settings()
+        scroll.setWidget(settings)
+        # Never taller than the settings themselves: spare height goes to the queue, not to grey space.
+        scroll.setMaximumHeight(settings.sizeHint().height() + 4)
         left = QSplitter(Qt.Orientation.Vertical)
         left.addWidget(self.queue_stack)
         left.addWidget(scroll)
         left.setStretchFactor(0, 1)
-        left.setStretchFactor(1, 2)
+        left.setStretchFactor(1, 0)
+        left.setCollapsible(0, False)
+        self._left_split, self._settings_height, self._sized = left, settings.sizeHint().height() + 4, False
         split.addWidget(left)
 
         # Right: the preview gets all the height.
@@ -432,8 +437,17 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Add files", f"Not found: {e}")
             return
         self.statusBar().showMessage(f"Added {n} file(s)" if n else "No new photos or videos found there", 4000)
-        if n and not self.table.selectedItems():
-            self.table.selectRow(self.table.rowCount() - n)
+        if n:
+            self.reset_3d_sliders()
+            self.table.selectRow(self.table.rowCount() - n)  # preview the first new file
+
+    def reset_3d_sliders(self) -> None:
+        """New files start from the default 3D strength/convergence (the chosen preset's, if any)."""
+        name = self.preset_combo.currentData()
+        ref = self.presets.get(name) if name else ConvertOptions()
+        self.strength.setValue(ref.strength)
+        self.convergence.setValue(ref.convergence)
+        self._settings_changed()
 
     def add_files_dialog(self) -> None:
         exts = " ".join(f"*{e}" for e in sorted(PHOTO_EXTS | VIDEO_EXTS))
@@ -571,6 +585,13 @@ class MainWindow(QMainWindow):
     # -- misc -------------------------------------------------------------------------------
     def _append_log(self, text: str) -> None:
         self.log_view.appendPlainText(text)
+
+    def showEvent(self, e) -> None:
+        super().showEvent(e)
+        if not self._sized:  # settings get their full height; the queue takes whatever is left
+            self._sized = True
+            total = sum(self._left_split.sizes())
+            self._left_split.setSizes([max(120, total - self._settings_height), self._settings_height])
 
     def dragEnterEvent(self, e) -> None:
         if e.mimeData().hasUrls():
