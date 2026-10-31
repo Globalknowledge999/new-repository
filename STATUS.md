@@ -8,7 +8,12 @@ Last updated: 2026-10-31 (phase 2)
   the upstream schedule exactly; tested against a port of the upstream algorithm), video default =
   vda-small@392; segmented output in <name>.parallaxa-work with resume (frame-exact via fps+trim
   filters; VDA warm-up + saved anchor); `bench` supports VDA. 40 tests pass offline.
-- Phase 2 not yet verified on real VDA weights (Hugging Face is blocked in the dev container).
+- Phase 2 verified on the RTX 3060: real VDA-Small weights load and run (720p: 83 ms/frame depth,
+  8.0 fps overall; 360p: ~13 fps). Ctrl+C + resume tested twice on a 3.4-min clip: joins clean,
+  audio in sync.
+- Open: render stages slowed from ~15 to ~34 ms/frame when running alongside VDA (cause unknown;
+  suspect GPU memory pressure or uneven batch sizes). User hasn't yet compared flicker of
+  vda (balanced) vs da2-small (fast); that decides the video default.
 
 ## User's test PC (Windows 11)
 - RTX 3060 12 GB, NVIDIA driver 591.59 (CUDA 13.1), Python 3.11.9 venv at `C:\Users\Simon\parallaxa\.venv`
@@ -28,6 +33,5 @@ Last updated: 2026-10-31 (phase 2)
   of `--strength 3 --convergence 0.6`
 
 ## Next
-- User to test phase 2 on the RTX 3060: `parallaxa bench --model vda-small`, speed + flicker vs
-  `--profile fast`, Ctrl+C / resume
+- Flicker verdict (balanced vs fast) from the user
 - Then phase 3: Windows GUI (PySide6), using `--progress json` events
