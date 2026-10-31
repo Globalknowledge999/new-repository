@@ -34,6 +34,20 @@ class Engine:
             model.depth_res = depth_res
         return model
 
+    def inpainter(self, kind: str):
+        """The generative gap filler for this kind of input, or None for basic filling."""
+        job = self.job
+        mode = job.fill if job.fill != "auto" else ("ai" if kind == "photo" else "basic")
+        if mode != "ai":
+            return None
+        key = f"inpaint:{job.fill_model}:{job.fill_steps}"
+        if key not in self._models:
+            from ..stereo.inpaint import load_inpainter
+
+            self.log(f"Loading AI gap-filling model {job.fill_model} on {self.device} (first use downloads ~2.6 GB) ...")
+            self._models[key] = load_inpainter(job.fill_model, self.device, self.dtype, job.fill_steps)
+        return self._models[key]
+
     def to_tensor(self, frames_u8) -> torch.Tensor:
         """(B, H, W, 3) uint8 numpy -> (B, 3, H, W) float [0, 1] on the device."""
         t = torch.from_numpy(frames_u8)

@@ -56,9 +56,22 @@ class PreviewEngine:
         self.dtype = default_dtype(self.device)
         self.max_width = max_width
         self._models: dict[str, object] = {}
+        self._inpainters: dict[str, object] = {}
         self._key = None
         self.img: torch.Tensor | None = None
         self.raw_depth: torch.Tensor | None = None
+
+    def wants_ai(self, opts: ConvertOptions, kind: str) -> bool:
+        return opts.fill == "ai" or (opts.fill == "auto" and kind == "photo")
+
+    def inpainter(self, opts: ConvertOptions):
+        key = f"inpaint:{opts.fill_model}"
+        if key not in self._inpainters:
+            from ..stereo.inpaint import load_inpainter
+
+            self._inpainters.clear()
+            self._inpainters[key] = load_inpainter(opts.fill_model, self.device, self.dtype)
+        return self._inpainters[key]
 
     def load(self, path: Path, kind: str, opts: ConvertOptions) -> None:
         model, res = photo_model_for(opts, kind)
@@ -84,14 +97,14 @@ class PreviewEngine:
         self.img, self._key = t, key
 
     @torch.inference_mode()
-    def render(self, opts: ConvertOptions, mode: str) -> list[np.ndarray]:
-        """Returns one image, or two (left, right) for the wobble mode."""
+    def render(self, opts: ConvertOptions, mode: str, ai: bool = False) -> list[np.ndarray]:
+        """Returns one image, or two (left, right) for the wobble mode. ai=True adds generative gap filling."""
         assert self.img is not None and self.raw_depth is not None
         closeness = DepthNormalizer()(self.raw_depth)
         if mode == "depth":
             return [to_uint8(closeness.unsqueeze(1).expand(-1, 3, -1, -1))[0]]
         stereo = StereoSettings(strength=opts.strength, convergence=opts.convergence, eye_mode=opts.eye_mode)
-        left, right = StereoRenderer(stereo).render(self.img, closeness)
+        left, right = StereoRenderer(stereo).render(self.img, closeness, inpainter=self.inpainter(opts) if ai else None)
         if mode == "anaglyph":
             return [to_uint8(anaglyph(left, right, opts.anaglyph))[0]]
         if mode == "sbs":
@@ -138,7 +151,18 @@ class PreviewWorker(QObject):
             self.engine.load(Path(path), kind, opts)
             if self._pending is not None:  # newer request arrived while estimating depth
                 return self._run()
-            images = self.engine.render(opts, mode)
-            self.rendered.emit(images, f"{Path(path).name}  |  {MODES[mode]}  |  strength {opts.strength:g}%  convergence {opts.convergence:g}")
+            caption = f"{Path(path).name}  |  {MODES[mode]}  |  strength {opts.strength:g}%  convergence {opts.convergence:g}"
+            ai = mode != "depth" and self.engine.wants_ai(opts, kind)
+            self.rendered.emit(self.engine.render(opts, mode), caption + ("  |  AI gap filling..." if ai else ""))
+            if ai:
+                # Show the instant basic result first, then the AI-filled one unless a newer request came in.
+                from PySide6.QtCore import QCoreApplication
+
+                QCoreApplication.processEvents()
+                if self._pending is not None:
+                    return self._run()
+                if "inpaint:" + opts.fill_model not in self.engine._inpainters:
+                    self.status.emit("Loading the AI gap-filling model (the first time downloads ~2.6 GB)...")
+                self.rendered.emit(self.engine.render(opts, mode, ai=True), caption + "  |  AI gap filling")
         except Exception as e:  # show, don't crash the GUI
             self.failed.emit(f"Preview failed: {e}")

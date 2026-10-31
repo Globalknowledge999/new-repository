@@ -1,6 +1,6 @@
 # Project status / hand-over notes
 
-Last updated: 2026-10-31 (phase 3)
+Last updated: 2026-10-31 (phase 4)
 
 ## Done
 - Phase 1 (CLI converter).
@@ -42,6 +42,16 @@ Last updated: 2026-10-31 (phase 3)
 - 49 tests pass, including offscreen GUI tests with real child processes and stop/resume.
 - Not yet tried on Windows by the user.
 
+## Phase 4 (AI gap filling), done in the dev container
+- Stable Diffusion 2 inpainting via diffusers (safetensors, fp16). Masks hide foreground pixels next
+  to each gap so the model continues the background; works on 512 px tiles at ~1024 px and only
+  processes tiles with gaps; feathered composite. `--fill auto|basic|ai` (auto = ai for photos,
+  basic for video). GUI: "Gap filling" setting; the preview shows basic instantly, then AI.
+- LaMa rejected: TorchScript (executable) repackaged by a third party. StereoCrafter: >12 GB, gated.
+- Tested with a tiny random pipeline only (Hugging Face blocked here): the real model's output
+  quality and speed on the 3060 still need checking.
+
 ## Next
 - User to try the app on Windows (drag-drop, preview speed with DA-V2 Large, stop/resume)
-- Then phase 4: optional generative high-quality fill
+- User to try AI gap filling on photos (quality, time per photo)
+- Then phase 5: one-click Windows installer

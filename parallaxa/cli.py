@@ -49,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="0..1 depth placed at screen level; lower = more pop-out (default 0.6)")
     s.add_argument("--eye-mode", choices=["symmetric", "right", "left"], default="symmetric",
                    help="synthesise both eyes, or keep the original as the left/right eye")
+    s.add_argument("--fill", choices=["auto", "basic", "ai"], default="auto",
+                   help="gap filling: ai = Stable Diffusion inpainting (slow, best); basic = fast stretch; "
+                        "auto = ai for photos, basic for video")
+    s.add_argument("--fill-model", default="sd2", help="inpainting model: sd2, sd15 or a Hugging Face id")
+    s.add_argument("--fill-steps", type=int, default=20, help="diffusion steps for AI gap filling")
     s.add_argument("--edge-dilate", type=float, default=0.002, help="foreground edge growth, fraction of width")
     s.add_argument("--fill-iterations", type=int, default=8, help="hole-fill smoothing passes")
     s.add_argument("--depth-gamma", type=float, default=1.0)
@@ -93,7 +98,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _job_from_args(a) -> JobSettings:
-    job = JobSettings(device=a.device, fp16=False if a.fp32 else None, batch_size=a.batch_size, overwrite=a.overwrite)
+    job = JobSettings(device=a.device, fp16=False if a.fp32 else None, batch_size=a.batch_size, overwrite=a.overwrite,
+                      fill=a.fill, fill_model=a.fill_model, fill_steps=a.fill_steps)
     st = job.stereo
     st.strength, st.convergence, st.eye_mode = a.strength, a.convergence, a.eye_mode
     st.edge_dilate, st.fill_iterations, st.depth_gamma = a.edge_dilate, a.fill_iterations, a.depth_gamma

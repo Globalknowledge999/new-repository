@@ -22,6 +22,8 @@ class ConvertOptions:
     codec: str = "auto"
     container: str = "auto"
     crf: int = 18
+    fill: str = "auto"  # auto (AI for photos, basic for video) | basic | ai
+    fill_model: str = "sd2"
     segment_minutes: float = 10.0
     output_dir: str = ""  # "" = a '3d' folder next to each input
     # Advanced / testing: override the profile's model or device.
@@ -34,6 +36,7 @@ class ConvertOptions:
                 "--eye-mode", self.eye_mode, "--profile", self.profile, "--height", str(self.height),
                 "--anaglyph", self.anaglyph, "--image-ext", self.image_ext, "--codec", self.codec,
                 "--container", self.container, "--crf", str(self.crf), "--segment-minutes", f"{self.segment_minutes:g}",
+                "--fill", self.fill, "--fill-model", self.fill_model,
                 "--device", self.device]
         if self.output_dir:
             args += ["-o", self.output_dir]
@@ -43,7 +46,7 @@ class ConvertOptions:
 
     def preset_dict(self) -> dict:
         d = asdict(self)
-        for k in ("output_dir", "model", "device"):  # machine-specific, not part of a look
+        for k in ("output_dir", "model", "device", "fill_model"):  # machine-specific, not part of a look
             d.pop(k)
         return d
 
@@ -97,7 +100,7 @@ class PresetStore:
         values = BUILTIN_PRESETS.get(name) or self._user().get(name, {})
         opts = ConvertOptions.from_dict(values)
         if base:
-            opts.output_dir, opts.model, opts.device = base.output_dir, base.model, base.device
+            opts.output_dir, opts.model, opts.device, opts.fill_model = base.output_dir, base.model, base.device, base.fill_model
         return opts
 
     def save(self, name: str, opts: ConvertOptions) -> None:

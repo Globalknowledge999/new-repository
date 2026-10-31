@@ -15,8 +15,8 @@ objects, and packs the result into common 3D formats. The default output is **fu
 |---|---|---|
 | 1 | Command-line converter: photos + videos, all output formats, audio passthrough | done |
 | 2 | Video Depth Anything for temporally stable video depth; resumable segmented processing for long films; speed work | done |
-| 3 | Windows desktop app: drag-and-drop batch queue, live 3D preview, progress/ETA, stop/resume, presets | **done (this release)** |
-| 4 | Optional generative high-quality fill (default for photos, optional for video) | planned |
+| 3 | Windows desktop app: drag-and-drop batch queue, live 3D preview, progress/ETA, stop/resume, presets | done |
+| 4 | AI gap filling with Stable Diffusion inpainting (default for photos, optional for video) | **done (this release)** |
 | 5 | One-click Windows installer (FFmpeg, CUDA PyTorch, models downloaded on first run) | planned |
 
 ---
@@ -195,6 +195,13 @@ frame-packing SEI.
   Everything nearer than this pops *out* of the screen, everything farther sits *behind* it.
   `1.0` puts the whole scene behind the screen (the most comfortable option). `0.0` makes
   everything pop out.
+* `--fill auto|basic|ai` controls gap filling. `ai` repaints the gaps beside foreground objects
+  with **Stable Diffusion 2 inpainting**, which gives real texture instead of stretched
+  background. It's the default for photos (`auto`). It's off for video because it takes a few
+  seconds per frame and can flicker. Turn it on with `--fill ai` for short clips. The first use
+  downloads ~2.6 GB. Expect roughly 10 to 30 s per photo on an RTX 3060; it depends on how many
+  gaps the picture has. `--fill-steps 20` (fewer is faster, more is finer) and
+  `--fill-model sd15` are the options.
 * `--eye-mode symmetric|right|left`. `symmetric` (default) synthesises both eyes with half the
   shift each, which halves the size of every filled gap. `right` keeps the untouched original as
   the left eye.
@@ -302,7 +309,13 @@ decode (FFmpeg, thread) ─► depth model (GPU) ─► normalise ─► stereo 
    hidden behind them, so each gap is filled from whichever side is *farther away*, never from
    the foreground. Then a few depth-aware smoothing passes run inside the gap. They only average
    neighbours that are not nearer than the gap, which removes streaks without bleeding the
-   foreground into the background. Phase 4 adds an optional generative fill here.
+   foreground into the background.
+   With **AI gap filling**, a Stable Diffusion inpainting model then repaints those gaps.
+   Before it runs, foreground pixels next to each gap are hidden from it as well, so it can only
+   continue the *background* (an unmasked inpainter tends to grow the person into the gap).
+   Only the gap pixels are written back, feathered over 2 px. It works on 512 px tiles at about
+   1024 px resolution and only processes tiles that contain gaps. The seed is fixed, so results
+   are repeatable.
 5. **Pack.** Views are packed into SBS, TB, half variants, anaglyph, RGB-D or MPO and encoded.
    The YUV↔RGB conversion uses the source's colour matrix (BT.709 for HD), so colours don't
    shift.
@@ -331,6 +344,7 @@ parallaxa/
   stereo/
     dibr.py              disparity, z-buffered forward warp, hole filling, renderer
     formats.py           SBS / half / TB / anaglyph / RGB-D packing
+    inpaint.py           AI gap filling (Stable Diffusion inpainting, foreground-excluded masks, tiling)
   io/
     image_io.py          JPG/PNG/WebP/HEIC load, save, 16-bit depth PNG, MPO writer
     video_io.py          ffprobe, threaded FFmpeg decode/encode, segment join + audio mux
@@ -369,4 +383,6 @@ tests/                   unit + end-to-end tests (run offline with debug models;
 * Processing is 8-bit SDR. HDR (PQ/HLG) sources are converted without tone mapping and will look
   washed out (you get a warning).
 * Variable-frame-rate phone videos are converted to constant frame rate, which keeps audio in sync.
-* Gap filling is non-generative. Large disocclusions at high strength show smeared background.
+* AI gap filling is per frame, so on video it's slow and can flicker. Basic filling remains the
+  video default. A true video-diffusion filler (StereoCrafter-style) needs more than 12 GB of VRAM
+  and gated weights, so it isn't included.

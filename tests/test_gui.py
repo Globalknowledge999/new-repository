@@ -61,11 +61,12 @@ def test_preview_engine_modes(tmp_path, scene):
     p = tmp_path / "p.png"
     Image.fromarray(img).save(p)
     eng = PreviewEngine("cpu")
-    opts = ConvertOptions(model="debug-gradient")
+    opts = ConvertOptions(model="debug-gradient", fill_model="debug-tiny")
     eng.load(p, "photo", opts)
     h, w = img.shape[:2]
+    assert eng.wants_ai(opts, "photo") and not eng.wants_ai(opts, "video")
     for mode in MODES:
-        out = eng.render(opts, mode)
+        out = eng.render(opts, mode, ai=mode == "anaglyph")
         assert len(out) == (2 if mode == "wiggle" else 1)
         assert out[0].shape == ((h, 2 * w, 3) if mode in ("sbs", "cross") else (h, w, 3))
 
@@ -83,7 +84,8 @@ def test_queue_runs_jobs_in_child_processes(app, tmp_path, sample_video, scene):
     runner = QueueRunner()
     assert runner.add([str(sample_video), str(tmp_path / "photo.png")]) == 2
     assert runner.add([str(sample_video)]) == 0  # no duplicates
-    opts = ConvertOptions(model="debug-gradient", device="cpu", output_dir=str(tmp_path / "out"), formats=["sbs"])
+    opts = ConvertOptions(model="debug-gradient", device="cpu", output_dir=str(tmp_path / "out"), formats=["sbs"],
+                          fill_model="debug-tiny")
     runner.start(opts)
     assert pump(app, 120, lambda: not runner.running)
     statuses = {j.path.name: j.status for j in runner.jobs}
@@ -127,7 +129,9 @@ def test_main_window_smoke(app, tmp_path, sample_video):
     from parallaxa.gui.main_window import MainWindow
 
     store = PresetStore(tmp_path / "cfg")
+    store.save_last(ConvertOptions(fill_model="debug-tiny"))
     win = MainWindow(presets=store, preview_device="cpu")
+    assert win.options().fill_model == "debug-tiny" and win.options().fill == "auto"
     win.add_paths([str(sample_video)])
     assert win.table.rowCount() == 1 and win.queue_stack.currentIndex() == 1
     win.apply_options(store.get("Strong pop-out", base=win.options()))

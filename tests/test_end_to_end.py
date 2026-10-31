@@ -21,7 +21,7 @@ def test_photo_all_formats(tmp_path, scene):
     Image.fromarray(img).save(src)
     out = tmp_path / "out"
     rc = main(["convert", str(src), "-o", str(out), "--model", "debug-random", "--device", "cpu",
-               "-f", "sbs,hsbs,tb,htb,anaglyph,mpo,depth,rgbd"])
+               "-f", "sbs,hsbs,tb,htb,anaglyph,mpo,depth,rgbd", "--fill", "basic"])
     assert rc == 0
     names = sorted(p.name for p in out.iterdir())
     assert names == sorted(["pic_3D_SBS.jpg", "pic_3D_HSBS.jpg", "pic_3D_TB.jpg", "pic_3D_HTB.jpg",
@@ -37,7 +37,7 @@ def test_photo_resize_and_skip_existing(tmp_path, scene):
     img, _ = scene
     src = tmp_path / "pic.jpg"
     Image.fromarray(img).save(src)
-    args = ["convert", str(tmp_path), "-o", str(tmp_path / "o"), "--model", "debug-gradient", "--device", "cpu", "--height", "48"]
+    args = ["convert", str(tmp_path), "-o", str(tmp_path / "o"), "--model", "debug-gradient", "--device", "cpu", "--height", "48", "--fill", "basic"]
     assert main(args) == 0
     assert Image.open(tmp_path / "o" / "pic_3D_SBS.jpg").size == (128, 48)
     mtime = (tmp_path / "o" / "pic_3D_SBS.jpg").stat().st_mtime_ns
@@ -72,3 +72,13 @@ def test_video_mkv_container_stereo_tag(tmp_path, sample_video):
     v = next(s for s in streams if s["codec_type"] == "video")
     assert (v["width"], v["height"]) == (228, 64)
     assert any(s["codec_type"] == "audio" for s in streams)
+
+
+def test_photo_ai_fill_end_to_end(tmp_path, scene):
+    img, _ = scene
+    src = tmp_path / "pic.png"
+    Image.fromarray(img).save(src)
+    rc = main(["convert", str(src), "-o", str(tmp_path / "o"), "--model", "debug-gradient", "--device", "cpu",
+               "--fill", "ai", "--fill-model", "debug-tiny", "--strength", "8"])
+    assert rc == 0
+    assert Image.open(tmp_path / "o" / "pic_3D_SBS.jpg").size == (256, 96)

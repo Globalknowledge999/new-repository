@@ -39,7 +39,7 @@ def convert_photo(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
     est = engine.depth_model(model, depth_res)
     ds = job.depth
     closeness = DepthNormalizer(ds.low_pct, ds.high_pct, 0.0, job.stereo.depth_gamma)(est.predict(img))
-    left, right = engine.renderer.render(img, closeness)
+    left, right = engine.renderer.render(img, closeness, inpainter=engine.inpainter("photo"))
 
     written = []
     icc = meta.get("icc_profile")

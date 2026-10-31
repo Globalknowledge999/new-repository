@@ -29,12 +29,25 @@ Paper: Chen et al., *Video Depth Anything*, CVPR 2025. The network definition is
 marked modifications (fused attention, no easydict, quiet start-up), so the published
 checkpoints load unchanged. The streaming inference around it is Parallaxa's own.
 
-## Planned
+### AI gap filling
+
+| Key | Model | Licence (weights) | Used for |
+|---|---|---|---|
+| `sd2` | [Stable Diffusion 2 inpainting](https://huggingface.co/stabilityai/stable-diffusion-2-inpainting) (Stability AI) | CreativeML Open RAIL++-M (use restrictions; personal use fine) | **default gap filling for photos** (`--fill ai`/`auto`) |
+| `sd15` | [Stable Diffusion 1.5 inpainting](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-inpainting) | CreativeML OpenRAIL-M | alternative |
+
+These are loaded with Hugging Face `diffusers` (Apache-2.0) as safetensors, which is plain data
+with no executable code, in fp16 (~2.6 GB download, ~3.5 GB VRAM).
+
+**Considered and not used:** LaMa as a TorchScript file. It's fast, but that format contains
+executable code, and the copy available is repackaged by a third party. StereoCrafter: video
+diffusion built on Stable Video Diffusion, with gated weights, and it needs well over 12 GB.
+
+## Planned / possible
 
 | Phase | Model | Licence | Why |
 |---|---|---|---|
-| 4 | [StereoCrafter](https://github.com/TencentARC/StereoCrafter) (Tencent ARC) | Tencent custom licence (research / non-commercial terms; read before use) | Generative inpainting of disocclusions for the high-quality mode. Heavy: it needs an SVD-based diffusion backbone, so expect it to be slow on 12 GB. |
-| 4 (alt.) | A smaller image-inpainting model (e.g. LaMa, Apache-2.0) | Apache-2.0 | Cheaper "HQ fill" for photos if StereoCrafter is too slow on an RTX 3060. |
+| later | [StereoCrafter](https://github.com/TencentARC/StereoCrafter) (Tencent ARC) | Tencent custom licence | Temporally consistent generative fill for video, if a bigger GPU is ever available |
 
 Alternatives considered and not used by default:
 
@@ -47,6 +60,7 @@ Alternatives considered and not used by default:
 ## Debug models (no download)
 
 * `debug-gradient`: depth is a vertical ramp. Useful to check FFmpeg/output wiring.
+* `debug-tiny` (gap filling): a miniature randomly initialised inpainting pipeline, for offline tests.
 * `debug-vda`: a randomly initialised Video Depth Anything Small network, for offline tests.
 * `debug-random`: a tiny randomly initialised Depth-Anything-shaped network, so the real code
   path runs without any download. The output depth is meaningless.

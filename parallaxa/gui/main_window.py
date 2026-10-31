@@ -317,6 +317,11 @@ class MainWindow(QMainWindow):
         form.addRow("Depth quality", self.profile_combo)
         self.height_combo = self._combo(HEIGHTS)
         form.addRow("Resolution (per eye)", self.height_combo)
+        self.fill_combo = self._combo([("auto", "Automatic (AI for photos, basic for video)"),
+                                       ("ai", "AI inpainting (best, slow; Stable Diffusion)"),
+                                       ("basic", "Basic (fast)")])
+        self.fill_combo.setToolTip("How the gaps that open up beside foreground objects are filled.")
+        form.addRow("Gap filling", self.fill_combo)
         self.eye_combo = self._combo([("symmetric", "Shift both eyes (smallest gaps)"),
                                       ("right", "Keep original as left eye"),
                                       ("left", "Keep original as right eye")])
@@ -376,16 +381,18 @@ class MainWindow(QMainWindow):
             eye_mode=self.eye_combo.currentData(), profile=self.profile_combo.currentData(),
             height=self.height_combo.currentData(), codec=self.codec_combo.currentData(),
             container=self.container_combo.currentData(), output_dir=self.output_edit.text().strip(),
+            fill=self.fill_combo.currentData(), fill_model=self._advanced.get("fill_model", "sd2"),
             model=self._advanced.get("model", ""), device=self._advanced.get("device", "auto"))
 
     def apply_options(self, o: ConvertOptions) -> None:
         self._loading_settings = True
-        self._advanced = {"model": o.model, "device": o.device}
+        self._advanced = {"model": o.model, "device": o.device, "fill_model": o.fill_model}
         for k, cb in self.format_checks.items():
             cb.setChecked(k in o.formats)
         self.strength.setValue(o.strength)
         self.convergence.setValue(o.convergence)
         for combo, value in ((self.eye_combo, o.eye_mode), (self.profile_combo, o.profile), (self.height_combo, o.height),
+                             (self.fill_combo, o.fill),
                              (self.codec_combo, o.codec), (self.container_combo, o.container)):
             i = combo.findData(value)
             combo.setCurrentIndex(i if i >= 0 else 0)

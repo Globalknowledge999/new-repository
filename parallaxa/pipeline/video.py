@@ -109,7 +109,7 @@ def _fingerprint(info: VideoInfo, job, model: str, depth_res: int, formats: list
     st = info.path.stat()
     key = {"src": str(info.path.resolve()), "size": st.st_size, "mtime": int(st.st_mtime), "model": model,
            "depth_res": depth_res, "formats": formats, "seg_len": seg_len, "eye": eye,
-           "stereo": asdict(job.stereo), "depth": asdict(job.depth),
+           "stereo": asdict(job.stereo), "depth": asdict(job.depth), "fill": [job.fill, job.fill_model, job.fill_steps],
            "out": {k: v for k, v in asdict(job.output).items() if k not in ("formats", "container")}}
     return hashlib.sha1(json.dumps(key, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -139,6 +139,9 @@ def convert_video(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
                f"audio={','.join(info.audio_codecs) or 'none'} -> eye {ew}x{eh}, {', '.join(formats)}")
 
     est = engine.depth_model(model, depth_res)
+    inpainter = engine.inpainter("video")
+    if inpainter is not None:
+        engine.log("note: AI gap filling on video takes seconds per frame and may flicker; it suits short clips.")
     temporal = getattr(est, "temporal", False)
     stream = depth_stream(est)
     ds = job.depth
@@ -194,7 +197,7 @@ def convert_video(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
             depth = F.interpolate(depth[:, None].float(), size=img.shape[-2:], mode="bilinear", align_corners=True)[:, 0]
         with tm("depth normalise"):
             closeness = normalizer(depth)
-        left, right = engine.renderer.render(img, closeness, tm if timing else None)
+        left, right = engine.renderer.render(img, closeness, tm if timing else None, inpainter=inpainter)
         if not writers:
             open_segment(seg_index)
         for f, wr in writers.items():

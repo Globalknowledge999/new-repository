@@ -101,6 +101,25 @@ def _nearest_valid(valid: torch.Tensor):
     return left, right
 
 
+def _background_source(holes: torch.Tensor, zbuf: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """For every hole pixel: the column of the farther neighbouring valid pixel on its row, and the
+    resulting depth map (zbuf where valid, that background's depth inside holes)."""
+    w = holes.shape[-1]
+    left, right = _nearest_valid(~holes)
+    has_l, has_r = left >= 0, right < w
+    lz = torch.gather(zbuf, 2, left.clamp(0, w - 1))
+    rz = torch.gather(zbuf, 2, right.clamp(0, w - 1))
+    # Take the farther (smaller z) side; fall back to whichever side exists.
+    use_left = has_l & (~has_r | (lz <= rz))
+    src = torch.where(use_left, left, right).clamp(0, w - 1)
+    return src, torch.where(holes, torch.where(use_left, lz, rz), zbuf)
+
+
+def filled_depth(holes: torch.Tensor, zbuf: torch.Tensor) -> torch.Tensor:
+    """Depth map of a warped view with holes assigned their background's depth."""
+    return _background_source(holes, zbuf)[1] if holes.any() else zbuf
+
+
 def fill_holes(img: torch.Tensor, holes: torch.Tensor, zbuf: torch.Tensor, iterations: int = 8, z_tol: float = 1.0) -> torch.Tensor:
     """Fill disocclusions with background content.
 
@@ -109,17 +128,7 @@ def fill_holes(img: torch.Tensor, holes: torch.Tensor, zbuf: torch.Tensor, itera
     if not holes.any():
         return img
     b, c, h, w = img.shape
-    valid = ~holes
-    left, right = _nearest_valid(valid)
-    has_l, has_r = left >= 0, right < w
-    lz = torch.gather(zbuf, 2, left.clamp(0, w - 1))
-    rz = torch.gather(zbuf, 2, right.clamp(0, w - 1))
-    # Take the farther (smaller z) side; fall back to whichever side exists.
-    use_left = has_l & (~has_r | (lz <= rz))
-    src = torch.where(use_left, left, right).clamp(0, w - 1)
-    fill_z = torch.where(use_left, lz, rz)
-    z = torch.where(holes, fill_z, zbuf)
-
+    src, z = _background_source(holes, zbuf)
     idx = src.unsqueeze(1).expand(b, c, h, w)
     out = torch.where(holes.unsqueeze(1), torch.gather(img, 3, idx), img)
 
@@ -153,11 +162,12 @@ class StereoRenderer:
         self.s = settings
 
     @torch.inference_mode()
-    def render(self, img: torch.Tensor, closeness: torch.Tensor, timer=None) -> tuple[torch.Tensor, torch.Tensor]:
+    def render(self, img: torch.Tensor, closeness: torch.Tensor, timer=None, inpainter=None) -> tuple[torch.Tensor, torch.Tensor]:
         """img (B, 3, H, W) float [0, 1]; closeness (B, H, W) normalised [0, 1].
 
         Returns (left, right), each (B, 3, H, W) float [0, 1]. `timer(name)` is an optional context
-        manager factory used to time the sub-stages.
+        manager factory used to time the sub-stages. `inpainter` (see stereo/inpaint.py) optionally
+        repaints the disoccluded gaps with a generative model after the basic fill.
         """
         s = self.s
         tm = timer or (lambda _name: nullcontext())
@@ -171,7 +181,11 @@ class StereoRenderer:
             with tm("render: warp"):
                 warped, holes, zbuf = forward_warp(src, shift, z, s.z_tolerance)
             with tm("render: fill holes"):
-                return fill_holes(warped, holes, zbuf, s.fill_iterations, s.z_tolerance).clamp_(0, 1)
+                out = fill_holes(warped, holes, zbuf, s.fill_iterations, s.z_tolerance).clamp_(0, 1)
+            if inpainter is not None and holes.any():
+                with tm("render: AI gap filling"):
+                    out = inpainter.refine(out, holes, filled_depth(holes, zbuf))
+            return out
 
         if s.eye_mode == "right":
             return img.float(), synth(img, -disp, z)

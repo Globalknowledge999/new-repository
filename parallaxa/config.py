@@ -76,6 +76,11 @@ class JobSettings:
     fp16: bool | None = None
     batch_size: int = 4
     overwrite: bool = False
+    # Gap filling: "basic" (fast, depth-aware stretch), "ai" (Stable Diffusion inpainting on top),
+    # or "auto" (ai for photos, basic for video).
+    fill: str = "auto"
+    fill_model: str = "sd2"
+    fill_steps: int = 20
     stereo: StereoSettings = field(default_factory=StereoSettings)
     depth: DepthSettings = field(default_factory=DepthSettings)
     output: OutputSettings = field(default_factory=OutputSettings)
