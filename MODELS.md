@@ -11,7 +11,7 @@ Weights are not stored in this repository. They download from Hugging Face on fi
 
 | Key | Model | Params | Licence (weights) | Used for |
 |---|---|---|---|---|
-| `da2-small` | [Depth Anything V2 Small](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf) | ~25M | Apache-2.0 | **default for video**, `fast` profile |
+| `da2-small` | [Depth Anything V2 Small](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf) | ~25M | Apache-2.0 | **default for video** (`fast` profile) |
 | `da2-base` | [Depth Anything V2 Base](https://huggingface.co/depth-anything/Depth-Anything-V2-Base-hf) | ~98M | CC-BY-NC-4.0 | `balanced` profile |
 | `da2-large` | [Depth Anything V2 Large](https://huggingface.co/depth-anything/Depth-Anything-V2-Large-hf) | ~335M | CC-BY-NC-4.0 | **default for photos** |
 
@@ -20,7 +20,7 @@ These are loaded through Hugging Face `transformers` (Apache-2.0). Paper: Yang e
 
 | Key | Model | Params | Licence (weights) | Used for |
 |---|---|---|---|---|
-| `vda-small` | [Video Depth Anything Small](https://huggingface.co/depth-anything/Video-Depth-Anything-Small) | ~29M | Apache-2.0 | **default for video** (`balanced` and `quality` profiles) |
+| `vda-small` | [Video Depth Anything Small](https://huggingface.co/depth-anything/Video-Depth-Anything-Small) | ~29M | Apache-2.0 | `balanced` and `quality` profiles |
 | `vda-base` | [Video Depth Anything Base](https://huggingface.co/depth-anything/Video-Depth-Anything-Base) | ~113M | CC-BY-NC-4.0 | optional |
 | `vda-large` | [Video Depth Anything Large](https://huggingface.co/depth-anything/Video-Depth-Anything-Large) | ~382M | CC-BY-NC-4.0 | optional; needs well over 12 GB VRAM at 518 px |
 

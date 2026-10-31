@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("-f", "--format", type=_formats, default=("sbs",),
                    help="comma list: sbs (default), hsbs, tb, htb, anaglyph, rgbd; photos also mpo, depth")
     c.add_argument("--profile", choices=["auto", *PROFILES], default="auto",
-                   help="auto = DA-V2 Large for photos, Video Depth Anything Small (balanced) for video")
+                   help="auto = DA-V2 Large for photos, DA-V2 Small per frame (fast) for video")
     c.add_argument("--model", default=None, help="override depth model (see 'parallaxa models')")
     c.add_argument("--depth-res", type=int, default=None, help="depth inference short side in px (multiple of 14)")
 
@@ -101,7 +101,7 @@ def _job_from_args(a) -> JobSettings:
 
 
 def _model_for(kind: str, a) -> tuple[str, int]:
-    profile = a.profile if a.profile != "auto" else ("photo-quality" if kind == "photo" else "balanced")
+    profile = a.profile if a.profile != "auto" else ("photo-quality" if kind == "photo" else "fast")
     prof = PROFILES[profile]
     model = a.model or prof["model"]
     if kind == "photo" and model.startswith("vda-"):  # video models need a sequence; use the same-size photo model

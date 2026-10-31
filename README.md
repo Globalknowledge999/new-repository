@@ -179,10 +179,10 @@ frame-packing SEI.
 |---|---|---|---|
 | `--profile` | Model | Depth resolution | Notes |
 |---|---|---|---|
-| `auto` (default) | photos: `photo-quality`; video: `balanced` | | |
-| `balanced` | Video Depth Anything Small | 392 | **Default for video.** Temporally stable depth, Apache-2.0 |
+| `auto` (default) | photos: `photo-quality`; video: `fast` | | |
+| `fast` | DA-V2 Small, per frame | 392 | **Default for video.** ~13 fps at 720p on an RTX 3060 |
+| `balanced` | Video Depth Anything Small | 392 | Temporally stable depth (~8 fps at 720p). Try it if a video shimmers or "breathes" |
 | `quality` | Video Depth Anything Small | 518 | The resolution VDA was trained at. Sharper, ~1.7× the depth cost |
-| `fast` | DA-V2 Small, per frame | 392 | Fastest. Depth can shimmer between frames |
 | `photo-quality` | DA-V2 Large | 700 | **Default for photos** |
 
 To override a profile, use `--model` and `--depth-res N` (a multiple of 14; higher means more
