@@ -40,9 +40,9 @@ Source: "..\LICENSE"; DestDir: "{app}\installer\app"; Flags: ignoreversion
 Source: "..\parallaxa\*"; DestDir: "{app}\installer\app\parallaxa"; Excludes: "__pycache__,*.pyc"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{group}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userpics}"
+Name: "{group}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"
 Name: "{group}\Uninstall Parallaxa"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userpics}"; Tasks: desktopicon
+Name: "{userdesktop}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; Tasks: desktopicon
 
 [Run]
 ; Visible console so the long PyTorch download shows progress. Shortcuts and the uninstall entry
