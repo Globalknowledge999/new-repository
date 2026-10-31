@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -74,6 +75,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("models", help="list depth models and their licences")
     sub.add_parser("info", help="show GPU / FFmpeg / encoder status")
+
+    b = sub.add_parser("bench", help="measure GPU and depth-model speed, stage by stage")
+    b.add_argument("--model", default="da2-small")
+    b.add_argument("--device", default="auto")
+    b.add_argument("--size", default="1280x720", help="frame size WxH")
+    b.add_argument("--depth-res", type=int, default=392)
+    b.add_argument("--batch-size", type=int, default=4)
+    b.add_argument("--runs", type=int, default=10)
     return p
 
 
@@ -170,9 +179,18 @@ def cmd_info(_a) -> int:
     return 0
 
 
+def cmd_bench(a) -> int:
+    from .bench import run
+
+    w, h = (int(v) for v in a.size.lower().split("x"))
+    run(a.model, a.device, h, w, a.depth_res, a.batch_size, a.runs)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")  # harmless on Windows without Developer Mode
     a = build_parser().parse_args(argv)
-    return {"convert": cmd_convert, "models": cmd_models, "info": cmd_info}[a.command](a)
+    return {"convert": cmd_convert, "models": cmd_models, "info": cmd_info, "bench": cmd_bench}[a.command](a)
 
 
 if __name__ == "__main__":
