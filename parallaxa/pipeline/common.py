@@ -20,6 +20,8 @@ class Engine:
         self.device = resolve_device(job.device)
         self.dtype = default_dtype(self.device, job.fp16)
         self.renderer = StereoRenderer(job.stereo)
+        if self.device.type == "cuda":
+            torch.backends.cudnn.benchmark = True  # frame size is fixed per video, so autotuned convs pay off
         self.log = log
         self._models: dict[str, DepthEstimator] = {}
 

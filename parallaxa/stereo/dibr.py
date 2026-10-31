@@ -15,6 +15,7 @@ Everything is vectorised torch, so it runs on the GPU alongside the depth model.
 from __future__ import annotations
 
 import math
+from contextlib import nullcontext
 
 import torch
 import torch.nn.functional as F
@@ -122,25 +123,29 @@ def fill_holes(img: torch.Tensor, holes: torch.Tensor, zbuf: torch.Tensor, itera
     idx = src.unsqueeze(1).expand(b, c, h, w)
     out = torch.where(holes.unsqueeze(1), torch.gather(img, 3, idx), img)
 
+    if iterations <= 0:
+        return out
+
     # Depth-aware diffusion inside the holes: average 3x3 neighbours that are not nearer than the
-    # hole's background. Removes the streaky look of plain horizontal stretching.
-    hole_f = holes.unsqueeze(1)
+    # hole's background. Removes the streaky look of plain horizontal stretching. Only hole pixels
+    # change and z is fixed, so neighbour indices and weights are computed once and each pass is a
+    # small gather over the hole pixels rather than a full-frame operation.
+    hole_idx = holes.flatten().nonzero().squeeze(1)
+    bi, rem = hole_idx // (h * w), hole_idx % (h * w)
+    y, x = rem // w, rem % w
+    offs = torch.tensor([(dy, dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1)], device=img.device)
+    ny = (y.unsqueeze(1) + offs[:, 0]).clamp_(0, h - 1)  # clamping = replicate padding at borders
+    nx = (x.unsqueeze(1) + offs[:, 1]).clamp_(0, w - 1)
+    nbr = bi.unsqueeze(1) * (h * w) + ny * w + nx  # (N, 9)
+    zf = z.flatten()
+    wt = (zf[nbr] <= zf[hole_idx].unsqueeze(1) + z_tol).to(out.dtype)
+    wt[:, 4] *= 2.0  # centre pixel
+    wt = (wt / wt.sum(1, keepdim=True)).unsqueeze(2)
+
+    col = out.permute(0, 2, 3, 1).reshape(-1, c).contiguous()
     for _ in range(iterations):
-        p_img = F.pad(out, (1, 1, 1, 1), mode="replicate")
-        p_z = F.pad(z.unsqueeze(1), (1, 1, 1, 1), mode="replicate")
-        acc = torch.zeros_like(out)
-        wsum = torch.zeros_like(z.unsqueeze(1))
-        zc = z.unsqueeze(1)
-        for dy in (0, 1, 2):
-            for dx in (0, 1, 2):
-                nz = p_z[:, :, dy : dy + h, dx : dx + w]
-                wt = (nz <= zc + z_tol).to(out.dtype)
-                if dy == 1 and dx == 1:
-                    wt = wt * 2.0
-                acc += p_img[:, :, dy : dy + h, dx : dx + w] * wt
-                wsum += wt
-        out = torch.where(hole_f, acc / wsum.clamp_min(1e-6), out)
-    return out
+        col[hole_idx] = (col[nbr] * wt).sum(1)
+    return col.view(b, h, w, c).permute(0, 3, 1, 2)
 
 
 class StereoRenderer:
@@ -148,23 +153,30 @@ class StereoRenderer:
         self.s = settings
 
     @torch.inference_mode()
-    def render(self, img: torch.Tensor, closeness: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def render(self, img: torch.Tensor, closeness: torch.Tensor, timer=None) -> tuple[torch.Tensor, torch.Tensor]:
         """img (B, 3, H, W) float [0, 1]; closeness (B, H, W) normalised [0, 1].
 
-        Returns (left, right), each (B, 3, H, W) float [0, 1].
+        Returns (left, right), each (B, 3, H, W) float [0, 1]. `timer(name)` is an optional context
+        manager factory used to time the sub-stages.
         """
         s = self.s
-        near = prepare_closeness(closeness.float(), s)
-        disp = disparity_px(near, s)
+        tm = timer or (lambda _name: nullcontext())
+        with tm("render: prepare depth"):
+            near = prepare_closeness(closeness.float(), s)
+            disp = disparity_px(near, s)
         # z-key = disparity in pixels, so z_tolerance is measured in pixels of parallax.
         z = disp
 
-        def synth(shift: torch.Tensor) -> torch.Tensor:
-            warped, holes, zbuf = forward_warp(img, shift, z, s.z_tolerance)
-            return fill_holes(warped, holes, zbuf, s.fill_iterations, s.z_tolerance).clamp_(0, 1)
+        def synth(src: torch.Tensor, shift: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
+            with tm("render: warp"):
+                warped, holes, zbuf = forward_warp(src, shift, z, s.z_tolerance)
+            with tm("render: fill holes"):
+                return fill_holes(warped, holes, zbuf, s.fill_iterations, s.z_tolerance).clamp_(0, 1)
 
         if s.eye_mode == "right":
-            return img.float(), synth(-disp)
+            return img.float(), synth(img, -disp, z)
         if s.eye_mode == "left":
-            return synth(disp), img.float()
-        return synth(disp * 0.5), synth(-disp * 0.5)
+            return synth(img, disp, z), img.float()
+        # Both eyes in one batched pass (fewer, larger GPU kernels).
+        both = synth(torch.cat([img, img]), torch.cat([disp * 0.5, -disp * 0.5]), torch.cat([z, z]))
+        return both[: img.shape[0]], both[img.shape[0] :]

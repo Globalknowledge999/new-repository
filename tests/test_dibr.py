@@ -73,3 +73,40 @@ def test_eye_mode_right_keeps_original_left(scene):
     left, right = StereoRenderer(StereoSettings(eye_mode="right")).render(img, depth)
     assert torch.equal(left, img)
     assert not torch.equal(right, img)
+
+
+def _reference_fill(img, holes, zbuf, iterations, z_tol=1.0):
+    """The original full-frame diffusion, kept to check the sparse version gives the same result."""
+    import torch.nn.functional as F
+
+    out = fill_holes(img, holes, zbuf, iterations=0, z_tol=z_tol)
+    b, c, h, w = img.shape
+    # Rebuild z exactly as fill_holes does for the row fill.
+    from parallaxa.stereo.dibr import _nearest_valid
+
+    left, right = _nearest_valid(~holes)
+    lz = torch.gather(zbuf, 2, left.clamp(0, w - 1))
+    rz = torch.gather(zbuf, 2, right.clamp(0, w - 1))
+    use_left = (left >= 0) & ((right >= w) | (lz <= rz))
+    z = torch.where(holes, torch.where(use_left, lz, rz), zbuf)
+    for _ in range(iterations):
+        p_img = F.pad(out, (1, 1, 1, 1), mode="replicate")
+        p_z = F.pad(z.unsqueeze(1), (1, 1, 1, 1), mode="replicate")
+        acc, wsum = torch.zeros_like(out), torch.zeros_like(z.unsqueeze(1))
+        for dy in (0, 1, 2):
+            for dx in (0, 1, 2):
+                wt = (p_z[:, :, dy : dy + h, dx : dx + w] <= z.unsqueeze(1) + z_tol).float() * (2.0 if dy == dx == 1 else 1.0)
+                acc += p_img[:, :, dy : dy + h, dx : dx + w] * wt
+                wsum += wt
+        out = torch.where(holes.unsqueeze(1), acc / wsum, out)
+    return out
+
+
+def test_sparse_fill_matches_full_frame_reference():
+    torch.manual_seed(1)
+    img = torch.rand(2, 3, 20, 30)
+    holes = torch.rand(2, 20, 30) < 0.25
+    zbuf = torch.rand(2, 20, 30) * 5
+    fast = fill_holes(img, holes, zbuf, iterations=6)
+    ref = _reference_fill(img, holes, zbuf, iterations=6)
+    assert torch.allclose(fast, ref, atol=1e-5)

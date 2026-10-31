@@ -107,8 +107,7 @@ def convert_video(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
                 raw = est.predict(img)
             with tm("depth normalise"):
                 closeness = normalizer(raw)
-            with tm("stereo render"):
-                left, right = engine.renderer.render(img, closeness)
+            left, right = engine.renderer.render(img, closeness, tm if timing else None)
             for f, wr in writers.items():
                 with tm("pack + download"):
                     packed = to_uint8(compose(f, left, right, img, closeness, out.anaglyph))
