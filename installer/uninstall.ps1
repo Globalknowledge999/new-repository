@@ -45,7 +45,7 @@ if ($RemoveModels) {
 foreach ($d in @("venv", "python", "uv", "ffmpeg", "cache", "app", "installer")) {
     Remove-Item (Join-Path $InstallDir $d) -Recurse -Force -ErrorAction SilentlyContinue
 }
-Remove-Item (Join-Path $InstallDir "install.log") -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $InstallDir "install.log"), (Join-Path $InstallDir "parallaxa.ico") -Force -ErrorAction SilentlyContinue
 # The folder itself (and this script) go last, from a detached process, because this script is inside it.
 Start-Process -WindowStyle Hidden -FilePath "cmd.exe" -ArgumentList "/c timeout /t 2 >nul & rmdir /s /q `"$InstallDir`""
 Write-Host "Parallaxa has been removed. Your settings are in %APPDATA%\Parallaxa (delete that folder to forget them)." -ForegroundColor Green

@@ -203,7 +203,10 @@ try {
 
     # ---------------------------------------------------------------- shortcuts, uninstaller
     $gui = Join-Path $venv "Scripts\parallaxa-gui.exe"
-    $icon = Join-Path $venv "Lib\site-packages\parallaxa\assets\parallaxa.ico"
+    # Keep a copy of the icon at the top of the install folder (stable path for shortcuts).
+    $icon = Join-Path $InstallDir "parallaxa.ico"
+    $pkgIcon = Join-Path $venv "Lib\site-packages\parallaxa\assets\parallaxa.ico"
+    if ((Test-Path $pkgIcon) -and ($pkgIcon -ne $icon)) { Copy-Item $pkgIcon $icon -Force -ErrorAction SilentlyContinue }
     if ((Join-Path $PSScriptRoot "uninstall.ps1") -ne (Join-Path $InstallDir "uninstall.ps1")) {
         Copy-Item (Join-Path $PSScriptRoot "uninstall.ps1") (Join-Path $InstallDir "uninstall.ps1") -Force -ErrorAction Stop
     }

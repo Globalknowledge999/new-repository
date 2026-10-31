@@ -32,7 +32,7 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName=Parallaxa
-UninstallDisplayIcon={app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico
+UninstallDisplayIcon={app}\parallaxa.ico
 SetupIconFile=..\parallaxa\assets\parallaxa.ico
 LicenseFile=..\LICENSE
 
@@ -41,6 +41,9 @@ Name: "desktopicon"; Description: "Create a desktop icon"; GroupDescription: "Sh
 Name: "models"; Description: "Download the depth models now (about 1.4 GB; otherwise on first use)"; GroupDescription: "Models:"
 
 [Files]
+; The icon is copied straight into {app}: shortcuts are created before install.ps1 runs, so they must
+; not point at a file that only appears once the Python environment exists.
+Source: "..\parallaxa\assets\parallaxa.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "install.ps1"; DestDir: "{app}\installer"; Flags: ignoreversion
 Source: "uninstall.ps1"; DestDir: "{app}\installer"; Flags: ignoreversion
 Source: "..\pyproject.toml"; DestDir: "{app}\installer\app"; Flags: ignoreversion
@@ -50,9 +53,9 @@ Source: "..\LICENSE"; DestDir: "{app}\installer\app"; Flags: ignoreversion
 Source: "..\parallaxa\*"; DestDir: "{app}\installer\app\parallaxa"; Excludes: "__pycache__,*.pyc"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{autoprograms}\Parallaxa\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico"
+Name: "{autoprograms}\Parallaxa\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\parallaxa.ico"
 Name: "{autoprograms}\Parallaxa\Uninstall Parallaxa"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico"; Tasks: desktopicon
+Name: "{autodesktop}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\parallaxa.ico"; Tasks: desktopicon
 
 [Run]
 ; Visible console so the long PyTorch download shows progress. Shortcuts and the uninstall entry
@@ -72,6 +75,7 @@ Type: filesandordirs; Name: "{app}\cache"
 Type: filesandordirs; Name: "{app}\installer"
 Type: files; Name: "{app}\install.log"
 Type: files; Name: "{app}\uninstall.ps1"
+Type: files; Name: "{app}\parallaxa.ico"
 Type: dirifempty; Name: "{app}"
 
 [Code]
