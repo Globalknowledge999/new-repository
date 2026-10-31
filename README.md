@@ -202,8 +202,10 @@ frame-packing SEI.
   `--fill-model auto` (the default) uses SD 1.5 inpainting (~2 GB download). If that repository
   is unavailable, it falls back to SDXL inpainting (~7 GB, slower, finer) and then SD 2. Choose
   one directly with `sd15`, `sdxl`, `sd2` or any Hugging Face inpainting model id.
-  `--fill-steps 20` sets the steps (fewer is faster, more is finer). Expect roughly 10 to 30 s
-  per photo on an RTX 3060 with SD 1.5; it depends on how many gaps the picture has.
+  `--fill-steps 14` sets the steps (fewer is faster, more is finer). On the RTX 3060, a photo at
+  strength 5 took ~80 s with 20 steps. The defaults are now 14 steps and 4 tiles per batch, which
+  should be noticeably faster. The time depends on how many gaps the picture has, which grows
+  with strength. The log reports how many tiles were filled and how long it took.
 * `--eye-mode symmetric|right|left`. `symmetric` (default) synthesises both eyes with half the
   shift each, which halves the size of every filled gap. `right` keeps the untouched original as
   the left eye.

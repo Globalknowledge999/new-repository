@@ -80,7 +80,7 @@ class JobSettings:
     # or "auto" (ai for photos, basic for video).
     fill: str = "auto"
     fill_model: str = "auto"
-    fill_steps: int = 20
+    fill_steps: int = 14
     stereo: StereoSettings = field(default_factory=StereoSettings)
     depth: DepthSettings = field(default_factory=DepthSettings)
     output: OutputSettings = field(default_factory=OutputSettings)

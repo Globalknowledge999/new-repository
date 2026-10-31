@@ -56,6 +56,9 @@ def convert_photo(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
             arr = to_uint8(compose(fmt, left, right, img, closeness, out.anaglyph))[0]
             save_image(arr, path, out.jpeg_quality, icc)
         written.append(path)
-    fill = f"AI gap filling ({job.fill_model})" if inpainter is not None else "basic gap filling"
+    fill = "basic gap filling"
+    if inpainter is not None:
+        st = inpainter.stats
+        fill = f"AI gap filling: {st['tiles']} tiles in {st['seconds']:.1f}s"
     engine.log(f"done  {src.name} -> {', '.join(p.name for p in written)}  ({fill}, {time.perf_counter() - t0:.2f}s)")
     return written

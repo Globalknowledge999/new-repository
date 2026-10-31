@@ -142,9 +142,9 @@ def tiny_pipeline():
 
 
 class DiffusionInpainter:
-    def __init__(self, device: torch.device, dtype: torch.dtype, model: str = "auto", steps: int = 20,
+    def __init__(self, device: torch.device, dtype: torch.dtype, model: str = "auto", steps: int = 14,
                  work_long_side: int = 1024, tile: int = 512, overlap: int = 96, guidance: float = 4.0,
-                 seed: int = 1234, batch: int = 2, pipe=None, log=print):
+                 seed: int = 1234, batch: int = 4, pipe=None, log=print):
         self.device, self.dtype = device, dtype
         self.model, self.steps, self.work_long_side = model, steps, work_long_side
         self.tile, self.overlap, self.guidance, self.seed, self.batch = tile, overlap, guidance, seed, batch
@@ -153,6 +153,7 @@ class DiffusionInpainter:
         if self.xl:  # SDXL works at 1024 px; at 512 it degrades badly
             self.tile, self.overlap, self.work_long_side, self.batch = 1024, 160, max(work_long_side, 1536), 1
         self._embeds: tuple[torch.Tensor, torch.Tensor] | None = None
+        self.stats = {"tiles": 0, "seconds": 0.0}  # of the last refine() call
 
     def _prompt_embeds(self) -> tuple[torch.Tensor, torch.Tensor]:
         if self._embeds is None:
@@ -167,10 +168,15 @@ class DiffusionInpainter:
     @torch.inference_mode()
     def refine(self, img: torch.Tensor, holes: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         """img (B, 3, H, W) [0, 1] with gaps already basic-filled; holes (B, H, W); z (B, H, W) depth incl. gaps."""
+        import time
+
+        t0 = time.perf_counter()
+        self.stats = {"tiles": 0, "seconds": 0.0}
         out = img.clone()
         for b in range(img.shape[0]):
             if holes[b].any():
                 out[b : b + 1] = self._one(img[b : b + 1].float(), holes[b : b + 1], z[b : b + 1].float())
+        self.stats["seconds"] = time.perf_counter() - t0
         return out
 
     def _one(self, img: torch.Tensor, holes: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
@@ -193,6 +199,7 @@ class DiffusionInpainter:
         H, W = img_w.shape[-2:]
         boxes = [(y, x) for y in tile_origins(H, t, self.overlap) for x in tile_origins(W, t, self.overlap)
                  if paint_w[0, y : y + t, x : x + t].any()]
+        self.stats["tiles"] += len(boxes)
         canvas = torch.zeros_like(img_w)
         weight = torch.zeros_like(img_w[:, :1])
         feather = _feather(t, self.overlap, img.device)
@@ -222,7 +229,7 @@ class DiffusionInpainter:
         return img * (1 - alpha) + painted * alpha
 
 
-def load_inpainter(name: str, device: torch.device, dtype: torch.dtype, steps: int = 20, log=print) -> DiffusionInpainter:
+def load_inpainter(name: str, device: torch.device, dtype: torch.dtype, steps: int = 14, log=print) -> DiffusionInpainter:
     if name == "debug-tiny":
         return DiffusionInpainter(device, torch.float32, name, steps=min(steps, 2), tile=64, overlap=16,
                                   work_long_side=128, pipe=tiny_pipeline().to(device))
