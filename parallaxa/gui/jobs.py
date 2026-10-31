@@ -34,6 +34,7 @@ class Job:
     message: str = ""
     outputs: list[str] = field(default_factory=list)
     error: str = ""
+    overwrite: bool = False  # set by "Convert again": replace existing outputs
 
 
 def python_executable() -> str:
@@ -133,6 +134,8 @@ class QueueRunner(QObject):
         proc.finished.connect(self._finished)
         self.proc, self._buffer, self._stderr_tail = proc, b"", []
         args = ["-m", "parallaxa", "convert", str(job.path), *self.options.to_args(), "--progress", "json", "--control-stdin"]
+        if job.overwrite:
+            args.append("--overwrite")
         self.log.emit(f"> parallaxa convert \"{job.path}\" {' '.join(self.options.to_args())}")
         proc.start(python_executable(), args)
         self.running_changed.emit(True)

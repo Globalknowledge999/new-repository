@@ -165,3 +165,33 @@ def test_sliders_reset_when_files_are_added(app, tmp_path, sample_video, scene):
     win.add_paths([str(tmp_path / "more")])
     assert (win.strength.value(), win.convergence.value()) == (4.0, 0.35)
     win.close()
+
+
+def test_convert_again_overwrites(app, tmp_path, scene):
+    from PIL import Image
+
+    from parallaxa.gui.jobs import SKIPPED
+    from parallaxa.gui.main_window import MainWindow
+
+    Image.fromarray(scene[0]).save(tmp_path / "p.png")
+    store = PresetStore(tmp_path / "cfg")
+    store.save_last(ConvertOptions(model="debug-gradient", device="cpu", output_dir=str(tmp_path / "out"), fill="basic"))
+    win = MainWindow(presets=store, preview_device="cpu")
+    win.add_paths([str(tmp_path / "p.png")])
+    win.start()
+    assert pump(app, 60, lambda: not win.runner.running) and win.runner.jobs[0].status == DONE
+    out = tmp_path / "out" / "p_3D_SBS.jpg"
+    first = out.stat().st_mtime_ns
+    win.runner.jobs[0].status = DONE
+    win.runner.jobs[0].overwrite = False
+    win.runner.jobs[0].status = "Queued"  # a plain re-queue is skipped: output exists
+    win.start()
+    assert pump(app, 60, lambda: not win.runner.running) and win.runner.jobs[0].status == SKIPPED
+    win.runner.jobs[0].status = DONE
+    win._requeue([0])  # "Convert again" replaces the output
+    assert win.runner.jobs[0].overwrite
+    time.sleep(0.05)
+    win.start()
+    assert pump(app, 60, lambda: not win.runner.running) and win.runner.jobs[0].status == DONE
+    assert out.stat().st_mtime_ns > first
+    win.close()

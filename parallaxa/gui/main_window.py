@@ -539,6 +539,7 @@ class MainWindow(QMainWindow):
         for r in rows:
             j = self.runner.jobs[r]
             if j.status in FINISHED or j.status == STOPPED:
+                j.overwrite = j.status != STOPPED  # redo finished files; a stopped video still resumes
                 j.status, j.progress, j.message, j.error = "Queued", 0.0, "", ""
                 self._update_row(r)
 

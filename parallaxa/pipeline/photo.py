@@ -25,7 +25,7 @@ def convert_photo(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
     formats = [f for f in out.formats if f in PHOTO_FORMATS]
     targets = {f: output_path(src, out_dir, f, out.image_ext) for f in formats}
     if not job.overwrite and targets and all(p.exists() for p in targets.values()):
-        engine.log(f"skip (exists): {src.name}")
+        engine.log(f"skip (exists): {src.name}. Use --overwrite (or 'Convert again' in the app) to redo it")
         return []
 
     t0 = time.perf_counter()
@@ -39,7 +39,8 @@ def convert_photo(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
     est = engine.depth_model(model, depth_res)
     ds = job.depth
     closeness = DepthNormalizer(ds.low_pct, ds.high_pct, 0.0, job.stereo.depth_gamma)(est.predict(img))
-    left, right = engine.renderer.render(img, closeness, inpainter=engine.inpainter("photo"))
+    inpainter = engine.inpainter("photo")
+    left, right = engine.renderer.render(img, closeness, inpainter=inpainter)
 
     written = []
     icc = meta.get("icc_profile")
@@ -55,5 +56,6 @@ def convert_photo(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
             arr = to_uint8(compose(fmt, left, right, img, closeness, out.anaglyph))[0]
             save_image(arr, path, out.jpeg_quality, icc)
         written.append(path)
-    engine.log(f"done  {src.name} -> {', '.join(p.name for p in written)}  ({time.perf_counter() - t0:.2f}s)")
+    fill = f"AI gap filling ({job.fill_model})" if inpainter is not None else "basic gap filling"
+    engine.log(f"done  {src.name} -> {', '.join(p.name for p in written)}  ({fill}, {time.perf_counter() - t0:.2f}s)")
     return written
