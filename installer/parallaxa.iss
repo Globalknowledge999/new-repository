@@ -91,14 +91,32 @@ const
   two copies. Downloaded models and settings live in the user's profile and are kept. }
 procedure RemovePerUserCopy();
 var
-  Cmd: String;
-  Code: Integer;
+  Cmd, OldDir: String;
+  Code, I: Integer;
 begin
-  if IsAdminInstallMode and RegQueryStringValue(HKCU, UninstallKey, 'UninstallString', Cmd) then
+  if not IsAdminInstallMode then
+    exit;
+  OldDir := ExpandConstant('{localappdata}\Programs\Parallaxa');
+  if RegQueryStringValue(HKCU, UninstallKey, 'UninstallString', Cmd) then
   begin
     WizardForm.StatusLabel.Caption := 'Removing the earlier per-user copy of Parallaxa...';
     Exec(RemoveQuotes(Cmd), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    { The uninstaller hands over to a temporary copy of itself and returns at once; give it time. }
+    for I := 1 to 30 do
+    begin
+      if not DirExists(OldDir + '\venv') then
+        break;
+      Sleep(1000);
+    end;
   end;
+  { Clear whatever is left, but only if the folder is recognisably a Parallaxa install. }
+  if DirExists(OldDir + '\venv') or DirExists(OldDir + '\installer') or FileExists(OldDir + '\install.log') then
+    DelTree(OldDir, True, True, True);
+  RegDeleteKeyIncludingSubkeys(HKCU, UninstallKey);
+  RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\Parallaxa'); { script install }
+  { Per-user shortcuts would otherwise sit next to the new all-users ones. }
+  DeleteFile(ExpandConstant('{userdesktop}\Parallaxa.lnk'));
+  DelTree(ExpandConstant('{userprograms}\Parallaxa'), True, True, True);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
