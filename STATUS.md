@@ -73,4 +73,7 @@ Last updated: 2026-10-31 (phase 5)
 
 ## Next
 - User to try the app on Windows (drag-drop, preview speed with DA-V2 Large, stop/resume)
-- User to try Parallaxa-Setup.exe on the RTX 3060 PC (CUDA PyTorch path, FFmpeg/NVENC check, shortcuts)
+- Installer verified on the user's RTX 3060 PC (Windows build 26300) after two fixes: uv's Python
+  junctions blocked by Windows ("untrusted mount point", os error 448), and setup files now carry the
+  CI build number. Installed app: 1482x830 video, 4314 frames in 3:32 (20.3 fps), hevc_nvenc.
+- All five phases are done and verified on the target PC.
