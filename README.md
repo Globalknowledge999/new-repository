@@ -231,9 +231,9 @@ Please report back:
    with `-f sbs,anaglyph,depth`. How do the depth maps look? Are object edges clean, or do you
    see halos and stretching? Do faces look flat or rounded? Note the time per photo printed in
    the log.
-3. **Video:** convert a 1 to 2 minute clip with the defaults (Video Depth Anything). Report the
-   frames/s, whether audio stays in sync, and whether depth still flickers or "breathes"
-   compared with `--profile fast` (per-frame depth).
+3. **Video:** convert a 1 to 2 minute clip with the defaults (`fast`). Report the frames/s,
+   whether audio stays in sync, and whether depth flickers or "breathes". If it does, compare
+   with `--profile balanced` (Video Depth Anything).
 4. **Resume:** start a longer video, press Ctrl+C after a segment or two, run the same command
    again, and check the result plays smoothly across the join.
 5. Watch the result in your headset or player. Is `--strength 3 --convergence 0.6` comfortable,
