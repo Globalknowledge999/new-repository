@@ -77,5 +77,14 @@ Last updated: 2026-10-31 (phase 5)
   junctions blocked by Windows ("untrusted mount point", os error 448), and setup files now carry the
   CI build number. Installed app: 1482x830 video, 4314 frames in 3:32 (20.3 fps), hevc_nvenc.
 - All five phases are done and verified on the target PC.
-- Setup now installs to C:\Program Files\Parallaxa (admin; 'Install for me only' keeps the per-user
-  location), removes an earlier per-user copy, and compiles bytecode at install time. Not yet tried by the user.
+- Setup installs to C:\Program Files\Parallaxa (admin; 'Install for me only' keeps the per-user
+  location), removes an earlier per-user copy, and compiles bytecode at install time. Fixes on the way:
+  shortcut icon copied into {app} (shortcuts are made before install.ps1 runs), UsePreviousPrivileges=no
+  (Inno otherwise silently reused the old per-user mode), wait-then-clean removal of the per-user copy.
+  Build 11 confirmed by the user on 2026-10-31: all good.
+
+## Possible future work
+- Per-file settings in the GUI queue (currently: settings apply to files started after a change)
+- StereoCrafter-style video gap filling (needs >12 GB VRAM and gated weights; licence is research-only)
+- TensorRT path for faster depth on NVIDIA
+- Code signing for the setup (removes the SmartScreen warning)
