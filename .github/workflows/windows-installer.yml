@@ -21,7 +21,11 @@ jobs:
       - name: Build Parallaxa-Setup.exe
         shell: powershell
         run: |
-          choco install innosetup -y --no-progress | Out-Null
+          # GitHub runs PowerShell steps with ErrorActionPreference=Stop, which aborts as soon as a native
+          # tool writes to stderr; capture everything and decide from exit codes instead.
+          $ErrorActionPreference = "Continue"
+          $choco = choco install innosetup -y --no-progress 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0) { Write-Output $choco; Write-Output "::error::choco install innosetup failed ($LASTEXITCODE)"; exit 1 }
           $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $iscc) { Write-Output "::error::ISCC.exe not found after installing Inno Setup"; exit 1 }
           Write-Output "Using $($iscc.FullName)"
@@ -31,8 +35,7 @@ jobs:
           Write-Output $out
           if ($code -ne 0) {
             # Surface the compiler's message as annotations (readable without downloading the log).
-            ($out -split "`r?`n" | Where-Object { $_ -match "Error|error|Line \d+" } | Select-Object -Last 8) |
-              ForEach-Object { Write-Output "::error::$_" }
+            ($out -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 8) | ForEach-Object { Write-Output "::error::$_" }
             exit 1
           }
           Get-ChildItem dist
