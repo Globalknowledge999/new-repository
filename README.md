@@ -14,8 +14,8 @@ objects, and packs the result into common 3D formats. The default output is **fu
 | Phase | What | State |
 |---|---|---|
 | 1 | Command-line converter: photos + videos, all output formats, audio passthrough | done |
-| 2 | Video Depth Anything for temporally stable video depth; resumable segmented processing for long films; speed work | **done (this release)** |
-| 3 | Windows GUI (drag-drop, batch queue, live photo preview, progress/ETA, presets) | planned |
+| 2 | Video Depth Anything for temporally stable video depth; resumable segmented processing for long films; speed work | done |
+| 3 | Windows desktop app: drag-and-drop batch queue, live 3D preview, progress/ETA, stop/resume, presets | **done (this release)** |
 | 4 | Optional generative high-quality fill (default for photos, optional for video) | planned |
 | 5 | One-click Windows installer (FFmpeg, CUDA PyTorch, models downloaded on first run) | planned |
 
@@ -106,7 +106,36 @@ pytest -q
 
 ---
 
-## Usage
+## The desktop app
+
+Open it from the activated venv:
+
+```bash
+parallaxa gui
+```
+
+Or double-click `parallaxa\.venv\Scripts\parallaxa-gui.exe` (no console window). Right-click it
+→ *Send to* → *Desktop (create shortcut)* to get a desktop icon.
+
+* **Add files:** drag photos, videos or whole folders onto the window (sub-folders are
+  included), or use *Add files… / Add folder…*.
+* **Preview:** click a file in the queue to see it in 3D. Videos show a frame from 10% of the way
+  in. Change *View* to see it different ways: *Red/cyan anaglyph* (paper 3D glasses),
+  *Wobble* (flips between the eyes, so you can judge depth with no glasses), *Cross-eye*
+  (free-viewing), *Side by side*, or the *Depth map*. Depth is estimated once per file, so moving
+  the **3D strength** and **Convergence** sliders updates the preview almost instantly.
+* **Settings** apply to every file you start afterwards, and are remembered between sessions.
+  **Presets** set them in one click (VR headset, 3D TV half-SBS, red/cyan, gentle, strong
+  pop-out, depth maps). *Save as…* stores your own presets.
+* **Start** converts the queue one file at a time and shows progress and time left. **Stop**
+  ends the current file cleanly: a video keeps its finished segments, and pressing **Start**
+  again resumes it. Double-click a finished file to open its output folder. Right-click for
+  *Convert again* or *Remove*.
+* Each conversion runs as a separate `parallaxa convert` process, so a crash or GPU
+  out-of-memory error can't take the window down. The log at the bottom shows the exact
+  command and its output.
+
+## Command line
 
 ```bash
 parallaxa convert INPUT [INPUT ...] [-o OUTPUT_DIR] [options]
@@ -288,7 +317,7 @@ scale stays continuous across the join.
 
 ```
 parallaxa/
-  cli.py                 command-line entry point (parallaxa convert / models / info / bench)
+  cli.py                 command-line entry point (parallaxa convert / gui / models / info / bench)
   bench.py               GPU / model speed measurements
   config.py              settings dataclasses, quality profiles, file types
   device.py              cuda/cpu selection, fp16 on GPU
@@ -309,7 +338,13 @@ parallaxa/
     common.py            engine (device + cached models), batch file discovery
     photo.py             photo conversion
     video.py             streaming, segmented, resumable video conversion
-tests/                   unit + end-to-end tests (run offline with debug models)
+  gui/
+    app.py               starts the desktop app
+    main_window.py       queue, settings, preview, presets, log
+    jobs.py              batch queue: one `parallaxa convert --progress json` child process per file
+    preview.py           live preview (depth once, re-render on slider changes) on a worker thread
+    options.py           GUI settings <-> CLI arguments, presets storage (%APPDATA%\Parallaxa)
+tests/                   unit + end-to-end tests (run offline with debug models; GUI tests run offscreen)
 ```
 
 ### Troubleshooting

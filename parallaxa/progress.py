@@ -46,8 +46,9 @@ class Progress:
     def _emit(self) -> None:
         self._emitted_at = self.done
         if self.mode == "json":
+            eta = self.eta  # read once: it depends on the clock
             print(json.dumps({"event": "progress", "file": self.label, "done": self.done, "total": self.total,
-                              "rate": round(self.rate, 3), "eta_s": None if self.eta != self.eta else round(self.eta, 1)}), flush=True)
+                              "rate": round(self.rate, 3), "eta_s": None if eta != eta else round(eta, 1)}), flush=True)
             return
         if self.mode == "none":
             return

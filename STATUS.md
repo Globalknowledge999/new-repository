@@ -1,6 +1,6 @@
 # Project status / hand-over notes
 
-Last updated: 2026-10-31 (phase 2)
+Last updated: 2026-10-31 (phase 3)
 
 ## Done
 - Phase 1 (CLI converter).
@@ -33,5 +33,15 @@ Last updated: 2026-10-31 (phase 2)
 - First real-model results: photo depth quality, time per photo, video fps, flicker, comfort
   of `--strength 3 --convergence 0.6`
 
+## Phase 3 (desktop app), done in the dev container
+- PySide6 GUI: `parallaxa gui` / `parallaxa-gui.exe`. Queue on the left with settings below it,
+  big live preview on the right (anaglyph / wobble / cross-eye / SBS / depth). Presets + last
+  settings in %APPDATA%\Parallaxa. Jobs run as `parallaxa convert --progress json --control-stdin`
+  child processes; Stop sends 'cancel' on stdin (clean, so segments are kept), and Start resumes.
+- Fixed: JSON progress always reported eta_s=null (eta read twice).
+- 49 tests pass, including offscreen GUI tests with real child processes and stop/resume.
+- Not yet tried on Windows by the user.
+
 ## Next
-- Then phase 3: Windows GUI (PySide6), using `--progress json` events
+- User to try the app on Windows (drag-drop, preview speed with DA-V2 Large, stop/resume)
+- Then phase 4: optional generative high-quality fill

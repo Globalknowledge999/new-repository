@@ -62,3 +62,16 @@ def test_collect_inputs_skips_outputs(tmp_path):
         (tmp_path / n).write_bytes(b"x")
     found = {(p.name, k) for p, k in collect_inputs([str(tmp_path)])}
     assert found == {("a.jpg", "photo"), ("b.MP4", "video")}
+
+
+def test_json_progress_reports_eta(capsys):
+    import json
+    import time
+
+    from parallaxa.progress import Progress
+
+    p = Progress(100, "x", mode="json", min_interval=0)
+    time.sleep(0.01)
+    p.update(10)
+    ev = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert ev["eta_s"] is not None and ev["eta_s"] > 0

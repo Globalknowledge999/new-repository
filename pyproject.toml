@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "parallaxa"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local 2D-to-3D stereoscopic converter for photos and videos (personal use)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,6 +19,7 @@ dependencies = [
     "huggingface_hub>=0.24",
     "safetensors>=0.4",
     "einops>=0.7",  # Video Depth Anything temporal head
+    "PySide6-Essentials>=6.6",  # desktop GUI
 ]
 
 [project.optional-dependencies]
@@ -26,6 +27,9 @@ dev = ["pytest>=7"]
 
 [project.scripts]
 parallaxa = "parallaxa.cli:main"
+
+[project.gui-scripts]
+parallaxa-gui = "parallaxa.gui.app:main"
 
 [tool.setuptools.packages.find]
 include = ["parallaxa*"]

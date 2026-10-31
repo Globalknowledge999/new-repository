@@ -72,8 +72,12 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--overwrite", action="store_true")
     r.add_argument("--progress", choices=["text", "json", "none"], default="text")
     r.add_argument("--timing", action="store_true", help="video: print time spent per pipeline stage")
+    r.add_argument("--control-stdin", action="store_true", help=argparse.SUPPRESS)  # GUI: a 'cancel' line stops cleanly
     r.add_argument("--segment-minutes", type=float, default=10.0,
                    help="video is written in segments of this length; an interrupted run resumes from the last one")
+
+    g = sub.add_parser("gui", help="open the desktop app")
+    g.add_argument("files", nargs="*", help="photos/videos/folders to queue")
 
     sub.add_parser("models", help="list depth models and their licences")
     sub.add_parser("info", help="show GPU / FFmpeg / encoder status")
@@ -117,8 +121,16 @@ def cmd_convert(a) -> int:
     from .pipeline.video import convert_video
 
     job = _job_from_args(a)
-    log = (lambda m: print(json.dumps({"event": "log", "message": m}), flush=True)) if a.progress == "json" else \
-          (lambda m: print(m, file=sys.stderr, flush=True))
+    as_json = a.progress == "json"
+
+    def emit(event: str, **fields) -> None:
+        """Machine-readable events for the GUI (one JSON object per line on stdout)."""
+        if as_json:
+            print(json.dumps({"event": event, **fields}), flush=True)
+
+    log = (lambda m: emit("log", message=m)) if as_json else (lambda m: print(m, file=sys.stderr, flush=True))
+    if a.control_stdin:
+        _watch_stdin_for_cancel()
     items = collect_inputs(a.inputs, a.recursive)
     if not items:
         log("No supported photos or videos found.")
@@ -136,19 +148,41 @@ def cmd_convert(a) -> int:
         out_dir = Path(a.output) if a.output else src.parent / "3d"
         model, res = _model_for(kind, a)
         log(f"[{i}/{len(items)}] {src}")
+        emit("file_start", file=str(src), kind=kind, index=i, total=len(items), model=model)
         try:
             if kind == "photo":
-                convert_photo(engine, src, out_dir, model, res)
+                outputs = convert_photo(engine, src, out_dir, model, res)
             else:
-                convert_video(engine, src, out_dir, model, res, a.progress, a.timing, a.segment_minutes)
+                outputs = convert_video(engine, src, out_dir, model, res, a.progress, a.timing, a.segment_minutes)
+            emit("file_done", file=str(src), outputs=[str(p) for p in outputs], skipped=not outputs)
         except KeyboardInterrupt:
             log("Cancelled.")
+            emit("cancelled", file=str(src))
             return 130
         except Exception as e:  # keep going through a batch
             failures += 1
             log(f"FAILED {src.name}: {e}")
+            emit("file_failed", file=str(src), error=str(e))
     log(f"Finished {len(items) - failures}/{len(items)} in {time.perf_counter() - t0:.1f}s")
     return 1 if failures else 0
+
+
+def _watch_stdin_for_cancel() -> None:
+    """Let a parent process stop us cleanly by writing 'cancel' to stdin.
+
+    This behaves like Ctrl+C, so a video keeps its finished segments for resuming. If stdin
+    closes, the parent has gone, and we stop too.
+    """
+    import _thread
+    import threading
+
+    def watch() -> None:
+        for line in sys.stdin:
+            if line.strip() == "cancel":
+                break
+        _thread.interrupt_main()
+
+    threading.Thread(target=watch, daemon=True).start()
 
 
 def cmd_models(_a) -> int:
@@ -186,6 +220,12 @@ def cmd_info(_a) -> int:
     return 0
 
 
+def cmd_gui(a) -> int:
+    from .gui.app import main as gui_main
+
+    return gui_main(a.files)
+
+
 def cmd_bench(a) -> int:
     from .bench import run
 
@@ -197,7 +237,7 @@ def cmd_bench(a) -> int:
 def main(argv: list[str] | None = None) -> int:
     os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")  # harmless on Windows without Developer Mode
     a = build_parser().parse_args(argv)
-    return {"convert": cmd_convert, "models": cmd_models, "info": cmd_info, "bench": cmd_bench}[a.command](a)
+    return {"convert": cmd_convert, "models": cmd_models, "info": cmd_info, "bench": cmd_bench, "gui": cmd_gui}[a.command](a)
 
 
 if __name__ == "__main__":
