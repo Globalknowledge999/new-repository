@@ -77,3 +77,5 @@ Last updated: 2026-10-31 (phase 5)
   junctions blocked by Windows ("untrusted mount point", os error 448), and setup files now carry the
   CI build number. Installed app: 1482x830 video, 4314 frames in 3:32 (20.3 fps), hevc_nvenc.
 - All five phases are done and verified on the target PC.
+- Setup now installs to C:\Program Files\Parallaxa (admin; 'Install for me only' keeps the per-user
+  location), removes an earlier per-user copy, and compiles bytecode at install time. Not yet tried by the user.

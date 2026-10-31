@@ -25,18 +25,22 @@ objects, and packs the result into common 3D formats. The default output is **fu
 
 ## Easy install (Windows 10/11)
 
-No Python, git or admin rights needed. You need an internet connection; the install downloads
-about 4 GB.
+No Python or git needed. You need an internet connection; the install downloads about 4 GB.
 
 **Option A: Setup program.** Download `Parallaxa-Setup-<version>.exe`. Get it from the repository's
 **Releases** page or, for the latest build, from **Actions → Windows installer → the newest run →
 Artifacts**. Run it. Windows SmartScreen may warn that the app is unrecognised, because it isn't code-signed;
-click *More info → Run anyway*.
+click *More info → Run anyway*. The setup installs to **`C:\Program Files\Parallaxa`** for all users, so
+Windows asks for administrator permission. If you'd rather not, choose **Install for me only**
+on the first page. That needs no admin rights and installs to `%LOCALAPPDATA%\Programs\Parallaxa`.
+An all-users install removes an earlier per-user copy automatically. Downloaded models and
+settings are kept.
 
 **Option B: Script.** Download the repository as a ZIP (green *Code* button → *Download ZIP*),
-unzip it, and double-click `installer\Install-Parallaxa.cmd`.
+unzip it, and double-click `installer\Install-Parallaxa.cmd`. This installs for you only, into
+`%LOCALAPPDATA%\Programs\Parallaxa`, without admin rights.
 
-Either way, the installer works in `%LOCALAPPDATA%\Programs\Parallaxa` and:
+Either way, the installer:
 
 1. checks your NVIDIA driver and installs the matching **CUDA PyTorch** (driver 570+ → CUDA 12.8,
    560+ → 12.6, otherwise the CPU build);
@@ -47,8 +51,8 @@ Either way, the installer works in `%LOCALAPPDATA%\Programs\Parallaxa` and:
 5. creates **Start menu** and **desktop** shortcuts and an **uninstaller** (Apps & features, or
    Start menu → Parallaxa → Uninstall).
 
-To **update**, run the setup (or `Install-Parallaxa.cmd`) again. If anything fails, the full log is in
-`%LOCALAPPDATA%\Programs\Parallaxa\install.log`.
+To **update**, run the setup (or `Install-Parallaxa.cmd`) again. If anything fails, the full log is
+`install.log` in the install folder (`C:\Program Files\Parallaxa` or `%LOCALAPPDATA%\Programs\Parallaxa`).
 
 Models are stored in the shared Hugging Face cache (`%USERPROFILE%\.cache\huggingface`). They
 survive reinstalls. The app offers to fetch them on first launch, or you can use

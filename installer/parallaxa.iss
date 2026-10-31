@@ -14,10 +14,15 @@ AppId={{58217CE4-5D28-4D24-8F70-FF33D8F2CF30}
 AppName=Parallaxa
 AppVersion={#AppVersion}
 AppPublisher=Parallaxa (personal project)
-DefaultDirName={localappdata}\Programs\Parallaxa
+; Installs to C:\Program Files\Parallaxa (asks for admin rights). The first page also offers
+; "only for me", which needs no admin rights and installs to %LOCALAPPDATA%\Programs\Parallaxa.
+DefaultDirName={autopf}\Parallaxa
 DefaultGroupName=Parallaxa
 DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
+PrivilegesRequiredOverridesAllowed=dialog commandline
+; Don't reuse the folder of an earlier per-user install; that copy is removed instead (see [Code]).
+UsePreviousAppDir=no
 ; The build number tells setups from different CI runs apart.
 OutputBaseFilename=Parallaxa-Setup-{#AppVersion}-build{#BuildNo}
 OutputDir=..\dist
@@ -45,9 +50,9 @@ Source: "..\LICENSE"; DestDir: "{app}\installer\app"; Flags: ignoreversion
 Source: "..\parallaxa\*"; DestDir: "{app}\installer\app\parallaxa"; Excludes: "__pycache__,*.pyc"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{group}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico"
-Name: "{group}\Uninstall Parallaxa"; Filename: "{uninstallexe}"
-Name: "{userdesktop}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico"; Tasks: desktopicon
+Name: "{autoprograms}\Parallaxa\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico"
+Name: "{autoprograms}\Parallaxa\Uninstall Parallaxa"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\Parallaxa"; Filename: "{app}\venv\Scripts\parallaxa-gui.exe"; WorkingDir: "{userdocs}"; IconFilename: "{app}\venv\Lib\site-packages\parallaxa\assets\parallaxa.ico"; Tasks: desktopicon
 
 [Run]
 ; Visible console so the long PyTorch download shows progress. Shortcuts and the uninstall entry
@@ -75,8 +80,27 @@ begin
   if WizardIsTaskSelected('models') then Result := '' else Result := '-SkipModels';
 end;
 
+const
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{58217CE4-5D28-4D24-8F70-FF33D8F2CF30}_is1';
+
+{ An all-users install replaces an earlier per-user one (in %LOCALAPPDATA%\Programs), so there aren't
+  two copies. Downloaded models and settings live in the user's profile and are kept. }
+procedure RemovePerUserCopy();
+var
+  Cmd: String;
+  Code: Integer;
+begin
+  if IsAdminInstallMode and RegQueryStringValue(HKCU, UninstallKey, 'UninstallString', Cmd) then
+  begin
+    WizardForm.StatusLabel.Caption := 'Removing the earlier per-user copy of Parallaxa...';
+    Exec(RemoveQuotes(Cmd), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
+  if CurStep = ssInstall then
+    RemovePerUserCopy();
   if (CurStep = ssPostInstall) and not FileExists(ExpandConstant('{app}\venv\Scripts\parallaxa-gui.exe')) then
     MsgBox('The download step did not finish (see ' + ExpandConstant('{app}\install.log') + ').' + #13#10 +
            'Check your internet connection and run the setup again.', mbError, MB_OK);

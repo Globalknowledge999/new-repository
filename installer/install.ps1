@@ -129,7 +129,9 @@ try {
 
     # ---------------------------------------------------------------- PyTorch + Parallaxa
     Step "Installing PyTorch (about 3 GB for the CUDA build; this is the slow part)"
-    Run $uv @("pip", "install", "--python", $py, "torch", "torchvision", "--index-url", $torchIndex)
+    # Compile bytecode now: an all-users install in Program Files is read-only at run time, and it
+    # also makes the first start faster.
+    Run $uv @("pip", "install", "--python", $py, "--compile-bytecode", "torch", "torchvision", "--index-url", $torchIndex)
 
     Step "Installing Parallaxa"
     if (-not $Source) {
@@ -147,7 +149,7 @@ try {
     }
     Info "from $Source"
     # Keep the already-installed CUDA torch: resolve other packages from PyPI only.
-    Run $uv @("pip", "install", "--python", $py, "--reinstall-package", "parallaxa", $Source)
+    Run $uv @("pip", "install", "--python", $py, "--compile-bytecode", "--reinstall-package", "parallaxa", $Source)
 
     # ---------------------------------------------------------------- FFmpeg
     Step "Getting FFmpeg"
