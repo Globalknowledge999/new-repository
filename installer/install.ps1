@@ -93,10 +93,37 @@ try {
     $env:UV_PYTHON_INSTALL_DIR = Join-Path $InstallDir "python"
     $env:UV_CACHE_DIR = Join-Path $InstallDir "cache"
     $env:UV_LINK_MODE = "copy"
-    $env:UV_PYTHON_PREFERENCE = "only-managed"   # never pick up a system Python
     $venv = Join-Path $InstallDir "venv"
     $py = Join-Path $venv "Scripts\python.exe"
-    if (-not (Test-Path $py)) { Run $uv @("venv", $venv, "--python", $PythonVersion) }
+    # uv adds a folder junction per minor version (cpython-3.12-windows-...) pointing at the real install
+    # (cpython-3.12.N-windows-...). Recent Windows 11 builds refuse to follow junctions created by a
+    # non-admin user ("untrusted mount point", os error 448), so remove them (before and after installing:
+    # a failed earlier attempt may have left one) and use the real folder.
+    $pyRoot = $env:UV_PYTHON_INSTALL_DIR
+    function Remove-PythonJunctions {
+        Get-ChildItem $pyRoot -Directory -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint } |
+            ForEach-Object { cmd /c rmdir "$($_.FullName)" | Out-Null }
+    }
+    Remove-PythonJunctions
+    & $uv python install $PythonVersion
+    $installCode = $LASTEXITCODE
+    Remove-PythonJunctions
+    $real = Get-ChildItem $pyRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match ("^cpython-" + [regex]::Escape($PythonVersion) + "\.\d+-") } |
+        Sort-Object { [version]($_.Name -replace '^cpython-(\d+\.\d+\.\d+).*', '$1') } -Descending |
+        Select-Object -First 1
+    if (-not $real) { throw "Python $PythonVersion was not found in $pyRoot after installing it (uv exit code $installCode)" }
+    if ($installCode -ne 0) { Info "uv reported a problem after installing Python (exit code $installCode); continuing with the installed copy." }
+    $basePython = Join-Path $real.FullName "python.exe"
+    Info "Python: $basePython"
+
+    # A venv left by an earlier, failed attempt may point at the junction: rebuild it if it doesn't run.
+    if (Test-Path $py) {
+        & $py -c "import sys" 2>$null
+        if ($LASTEXITCODE -ne 0) { Remove-Item $venv -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    if (-not (Test-Path $py)) { Run $uv @("venv", $venv, "--python", $basePython) }
     if (-not (Test-Path $py)) { throw "Could not create the Python environment in $venv" }
     Info (& $py --version)
 
