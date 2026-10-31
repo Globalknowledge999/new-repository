@@ -95,6 +95,9 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--depth-res", type=int, default=392)
     b.add_argument("--batch-size", type=int, default=4)
     b.add_argument("--runs", type=int, default=10)
+    b.add_argument("--inpaint", action="store_true", help="benchmark the AI gap-filling model instead of a depth model")
+    b.add_argument("--fill-model", default="auto")
+    b.add_argument("--fill-steps", type=int, default=14)
     return p
 
 
@@ -236,6 +239,11 @@ def cmd_gui(a) -> int:
 def cmd_bench(a) -> int:
     from .bench import run
 
+    if a.inpaint:
+        from .bench import run_inpaint
+
+        run_inpaint(a.fill_model, a.device, a.fill_steps, runs=2)
+        return 0
     w, h = (int(v) for v in a.size.lower().split("x"))
     run(a.model, a.device, h, w, a.depth_res, a.batch_size, a.runs)
     return 0

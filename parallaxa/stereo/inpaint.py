@@ -144,7 +144,7 @@ def tiny_pipeline():
 class DiffusionInpainter:
     def __init__(self, device: torch.device, dtype: torch.dtype, model: str = "auto", steps: int = 14,
                  work_long_side: int = 1024, tile: int = 512, overlap: int = 96, guidance: float = 4.0,
-                 seed: int = 1234, batch: int = 4, pipe=None, log=print):
+                 seed: int = 1234, batch: int = 2, pipe=None, log=print):
         self.device, self.dtype = device, dtype
         self.model, self.steps, self.work_long_side = model, steps, work_long_side
         self.tile, self.overlap, self.guidance, self.seed, self.batch = tile, overlap, guidance, seed, batch

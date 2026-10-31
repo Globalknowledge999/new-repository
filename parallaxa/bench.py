@@ -14,7 +14,7 @@ from .device import default_dtype, describe, resolve_device
 
 def _time(fn, device: torch.device, runs: int) -> float:
     """Median seconds per call after warm-up."""
-    for _ in range(3):
+    for _ in range(min(3, runs)):
         fn()
     times = []
     for _ in range(runs):
@@ -90,3 +90,37 @@ def _bench_temporal(est, frames: torch.Tensor, device: torch.device, runs: int) 
           f"-> {1000 * win / STEP:.1f} ms per output frame (fp16 autocast: {stream.autocast})")
     if device.type == "cuda":
         print(f"\npeak VRAM {torch.cuda.max_memory_allocated() / 2**30:.2f} GB")
+
+
+def run_inpaint(model: str, device_name: str, steps: int, runs: int = 2) -> None:
+    """Time the AI gap-filling model on 512 px tiles at batch sizes 1, 2 and 4."""
+    from .stereo.inpaint import load_inpainter
+
+    device = resolve_device(device_name)
+    dtype = default_dtype(device)
+    print(f"device: {describe(device)}   torch {torch.__version__}")
+    inp = load_inpainter(model, device, dtype, steps)
+    pipe = inp.pipe
+    print(f"pipeline {type(pipe).__name__}: unet {pipe.unet.dtype} on {pipe.unet.device}, vae {pipe.vae.dtype}, "
+          f"attention {type(next(iter(pipe.unet.attn_processors.values()))).__name__}, tile {inp.tile}px, {steps} steps")
+    t = inp.tile
+    for batch in (1, 2, 4):
+        img = torch.rand(batch, 3, t, t, device=device, dtype=dtype)
+        mask = torch.zeros(batch, 1, t, t, device=device, dtype=dtype)
+        mask[..., t // 3 : 2 * t // 3, t // 2 - 16 : t // 2 + 16] = 1
+        kw = dict(image=img, mask_image=mask, height=t, width=t, strength=1.0, num_inference_steps=steps,
+                  guidance_scale=inp.guidance, output_type="pt")
+        if pipe.tokenizer is not None:
+            kw.update(prompt=["background"] * batch, negative_prompt=["object"] * batch)
+        else:
+            pos, neg = inp._prompt_embeds()
+            kw.update(prompt_embeds=pos.repeat(batch, 1, 1), negative_prompt_embeds=neg.repeat(batch, 1, 1))
+        if device.type == "cuda":
+            torch.cuda.reset_peak_memory_stats()
+        try:
+            sec = _time(lambda: pipe(**kw), device, runs)
+        except torch.OutOfMemoryError:
+            print(f"batch {batch}: out of GPU memory")
+            break
+        vram = f", peak VRAM {torch.cuda.max_memory_allocated() / 2**30:.2f} GB" if device.type == "cuda" else ""
+        print(f"batch {batch}: {sec:.2f} s per call = {sec / batch:.2f} s per tile, {steps * batch / sec:.1f} tile-steps/s{vram}")
