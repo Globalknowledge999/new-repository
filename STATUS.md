@@ -65,9 +65,12 @@ Last updated: 2026-10-31 (phase 5)
   release on v* tags).
 - App: finds the installer's FFmpeg; `parallaxa download`; first-launch download offer and a
   "Download models…" toolbar action.
-- All URLs verified to exist (uv 0.13.6, GyanD/codexffmpeg 8.0.1 and 7.1.1 essentials). The PowerShell
-  itself could not be run here (no Windows/pwsh); the CI run is its first real test.
+- All URLs verified to exist (uv 0.13.6, GyanD/codexffmpeg 8.0.1 and 7.1.1 essentials).
+- Windows CI (run 41225619990) passed: install.ps1 installed everything (CPU PyTorch), converted
+  a video and a photo, ran the full test suite (incl. GUI + stop/resume) on Windows, and built
+  Parallaxa-Setup-0.5.0.exe (1.6 MB artifact). Not covered by CI: the CUDA path (no GPU on the runner)
+  and the Setup.exe running install.ps1 interactively.
 
 ## Next
 - User to try the app on Windows (drag-drop, preview speed with DA-V2 Large, stop/resume)
-- Check the first Windows CI run; user to try Parallaxa-Setup.exe
+- User to try Parallaxa-Setup.exe on the RTX 3060 PC (CUDA PyTorch path, FFmpeg/NVENC check, shortcuts)
