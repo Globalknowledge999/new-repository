@@ -86,6 +86,12 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("files", nargs="*", help="photos/videos/folders to queue")
 
     sub.add_parser("models", help="list depth models and their licences")
+
+    d = sub.add_parser("download", help="download model weights now instead of on first use")
+    d.add_argument("names", nargs="*", help="da2-large, da2-small, vda-small, sd15 (default: the photo and video depth models)")
+    d.add_argument("--all", action="store_true", help="also the optional models (steady video depth, AI gap filling)")
+    d.add_argument("--force", action="store_true", help="download even if already cached")
+    d.add_argument("--progress", choices=["text", "json"], default="text")
     sub.add_parser("info", help="show GPU / FFmpeg / encoder status")
 
     b = sub.add_parser("bench", help="measure GPU and depth-model speed, stage by stage")
@@ -230,6 +236,17 @@ def cmd_info(_a) -> int:
     return 0
 
 
+def cmd_download(a) -> int:
+    from .downloads import DOWNLOADS, ESSENTIAL, run
+
+    names = list(DOWNLOADS) if a.all else (a.names or ESSENTIAL)
+    bad = [n for n in names if n not in DOWNLOADS]
+    if bad:
+        print(f"unknown model(s) {bad}; choose from {list(DOWNLOADS)}", file=sys.stderr)
+        return 2
+    return run(names, as_json=a.progress == "json", force=a.force)
+
+
 def cmd_gui(a) -> int:
     from .gui.app import main as gui_main
 
@@ -252,7 +269,7 @@ def cmd_bench(a) -> int:
 def main(argv: list[str] | None = None) -> int:
     os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")  # harmless on Windows without Developer Mode
     a = build_parser().parse_args(argv)
-    return {"convert": cmd_convert, "models": cmd_models, "info": cmd_info, "bench": cmd_bench, "gui": cmd_gui}[a.command](a)
+    return {"convert": cmd_convert, "models": cmd_models, "info": cmd_info, "bench": cmd_bench, "gui": cmd_gui, "download": cmd_download}[a.command](a)
 
 
 if __name__ == "__main__":

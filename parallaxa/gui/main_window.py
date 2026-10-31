@@ -131,7 +131,7 @@ class SliderRow(QWidget):
 class MainWindow(QMainWindow):
     preview_requested = Signal(object)
 
-    def __init__(self, presets: PresetStore | None = None, preview_device: str = "auto"):
+    def __init__(self, presets: PresetStore | None = None, preview_device: str = "auto", offer_downloads: bool = False):
         super().__init__()
         self.setWindowTitle(f"Parallaxa {__version__}: 2D to 3D")
         self.resize(1360, 820)
@@ -140,6 +140,8 @@ class MainWindow(QMainWindow):
         self.runner = QueueRunner(self)
         self._loading_settings = True  # widgets fire change signals while being built
         self._advanced: dict = {}
+        self._offer_downloads = offer_downloads
+        self._download_dialog = None
 
         self._build_toolbar()
         self._build_central()
@@ -183,6 +185,9 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         act("Clear finished", self.runner.clear_finished)
         act("Open output folder", self.open_output_folder)
+        tb.addSeparator()
+        act("Download models…", self.download_models_dialog, None,
+            "Download the depth models now, plus optional ones (steady video depth, AI gap filling)")
 
     def _build_central(self) -> None:
         split = QSplitter(Qt.Orientation.Horizontal)
@@ -607,6 +612,30 @@ class MainWindow(QMainWindow):
             self._settings_scroll.setMaximumHeight(h)  # never taller than the settings: no grey space
             total = sum(self._left_split.sizes())
             self._left_split.setSizes([max(140, total - h), h])
+            if self._offer_downloads:
+                QTimer.singleShot(400, self._first_run_downloads)
+
+    def _first_run_downloads(self) -> None:
+        from ..downloads import missing
+        from .downloads import offer_first_run_download
+
+        need = missing()
+        if need:
+            self._download_dialog = offer_first_run_download(self, need)
+
+    def download_models_dialog(self) -> None:
+        from ..downloads import DOWNLOADS, missing
+        from .downloads import ModelDownloadDialog
+
+        need = missing(list(DOWNLOADS))
+        if not need:
+            QMessageBox.information(self, "Download models", "All models are already downloaded.")
+            return
+        listing = "\n".join(f"  • {DOWNLOADS[n][0]} (~{DOWNLOADS[n][1]} MB)" for n in need)
+        if QMessageBox.question(self, "Download models", f"Download these now?\n\n{listing}") == QMessageBox.StandardButton.Yes:
+            self._download_dialog = ModelDownloadDialog(need, self)
+            self._download_dialog.start()
+            self._download_dialog.show()
 
     def dragEnterEvent(self, e) -> None:
         if e.mimeData().hasUrls():

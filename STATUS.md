@@ -1,6 +1,6 @@
 # Project status / hand-over notes
 
-Last updated: 2026-10-31 (phase 4)
+Last updated: 2026-10-31 (phase 5)
 
 ## Done
 - Phase 1 (CLI converter).
@@ -54,6 +54,20 @@ Last updated: 2026-10-31 (phase 4)
 - User's verdict on G1.jpg at strength 5: AI and basic look the same, so basic is the default for
   photos too; AI fill stays available as `--fill ai` or in the app's Gap filling setting.
 
+## Phase 5 (installer), done in the dev container
+- installer/install.ps1: per-user install/update into %LOCALAPPDATA%\Programs\Parallaxa via uv 0.13.6
+  (private Python 3.12), CUDA PyTorch matched to the driver (570+ cu128, 560+ cu126, else CPU),
+  FFmpeg 8.0.1 essentials (driver 570+) or 7.1.1, with an NVENC test and fallback; `parallaxa download`
+  of the depth models; Start menu/desktop shortcuts; HKCU Apps & features entry; uninstall.ps1.
+- installer/parallaxa.iss: Inno Setup wrapper (Parallaxa-Setup-<ver>.exe, no admin rights needed).
+- .github/workflows/windows-installer.yml: on windows-latest, runs install.ps1 (CPU torch), converts
+  a video and a photo, runs the test suite, builds the setup, uploads it as an artifact (and to the
+  release on v* tags).
+- App: finds the installer's FFmpeg; `parallaxa download`; first-launch download offer and a
+  "Download models…" toolbar action.
+- All URLs verified to exist (uv 0.13.6, GyanD/codexffmpeg 8.0.1 and 7.1.1 essentials). The PowerShell
+  itself could not be run here (no Windows/pwsh); the CI run is its first real test.
+
 ## Next
 - User to try the app on Windows (drag-drop, preview speed with DA-V2 Large, stop/resume)
-- Then phase 5: one-click Windows installer
+- Check the first Windows CI run; user to try Parallaxa-Setup.exe

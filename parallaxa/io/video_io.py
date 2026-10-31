@@ -30,11 +30,15 @@ _NO_WINDOW = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW: no consol
 
 
 def ffmpeg_bin(name: str = "ffmpeg") -> str:
-    """Find ffmpeg/ffprobe: $PARALLAXA_FFMPEG_DIR, a bundled ./ffmpeg/bin, then PATH."""
+    """Find ffmpeg/ffprobe: $PARALLAXA_FFMPEG_DIR, the installer's copy (<install>/ffmpeg/bin next to
+    the venv), a ./ffmpeg/bin in a source checkout, then PATH."""
+    import sys
+
     exe = name + (".exe" if os.name == "nt" else "")
     candidates = []
     if env := os.environ.get("PARALLAXA_FFMPEG_DIR"):
         candidates.append(Path(env) / exe)
+    candidates.append(Path(sys.prefix).parent / "ffmpeg" / "bin" / exe)
     candidates.append(Path(__file__).resolve().parents[2] / "ffmpeg" / "bin" / exe)
     for c in candidates:
         if c.is_file():

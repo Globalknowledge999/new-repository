@@ -195,3 +195,18 @@ def test_convert_again_overwrites(app, tmp_path, scene):
     assert pump(app, 60, lambda: not win.runner.running) and win.runner.jobs[0].status == DONE
     assert out.stat().st_mtime_ns > first
     win.close()
+
+
+def test_model_download_dialog_reports_failure_offline(app, monkeypatch):
+    """Runs the real `parallaxa download` child; with no route to Hugging Face it must fail cleanly."""
+    from parallaxa.gui.downloads import ModelDownloadDialog
+
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")  # no network use in tests
+    monkeypatch.setenv("HF_HOME", "/nonexistent-parallaxa-test-cache")
+    dlg = ModelDownloadDialog(["da2-small"])
+    dlg.start()
+    assert pump(app, 120, lambda: dlg.proc.state() == dlg.proc.ProcessState.NotRunning)
+    pump(app, 1, lambda: False)
+    assert dlg.failed and "da2-small" in dlg.failed[0]
+    assert "failed" in dlg.labelText()
+    dlg.close()

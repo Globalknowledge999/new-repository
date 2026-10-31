@@ -16,12 +16,45 @@ objects, and packs the result into common 3D formats. The default output is **fu
 | 1 | Command-line converter: photos + videos, all output formats, audio passthrough | done |
 | 2 | Video Depth Anything for temporally stable video depth; resumable segmented processing for long films; speed work | done |
 | 3 | Windows desktop app: drag-and-drop batch queue, live 3D preview, progress/ETA, stop/resume, presets | done |
-| 4 | Optional AI gap filling with Stable Diffusion inpainting (photos and video) | **done (this release)** |
-| 5 | One-click Windows installer (FFmpeg, CUDA PyTorch, models downloaded on first run) | planned |
+| 4 | Optional AI gap filling with Stable Diffusion inpainting (photos and video) | done |
+| 5 | One-click Windows installer: own Python, CUDA PyTorch matched to the driver, FFmpeg, shortcuts, uninstaller, model download | **done (this release)** |
 
 ---
 
-## Setup on a Windows 11 PC with an RTX 3060 (12 GB)
+## Easy install (Windows 10/11)
+
+No Python, git or admin rights needed. You need an internet connection; the install downloads
+about 4 GB.
+
+**Option A: Setup program.** Download `Parallaxa-Setup-<version>.exe`. Get it from the repository's
+**Releases** page or, for the latest build, from **Actions → Windows installer → the newest run →
+Artifacts**. Run it. Windows SmartScreen may warn that the app is unrecognised, because it isn't code-signed;
+click *More info → Run anyway*.
+
+**Option B: Script.** Download the repository as a ZIP (green *Code* button → *Download ZIP*),
+unzip it, and double-click `installer\Install-Parallaxa.cmd`.
+
+Either way, the installer works in `%LOCALAPPDATA%\Programs\Parallaxa` and:
+
+1. checks your NVIDIA driver and installs the matching **CUDA PyTorch** (driver 570+ → CUDA 12.8,
+   560+ → 12.6, otherwise the CPU build);
+2. installs a private **Python 3.12** through [uv](https://github.com/astral-sh/uv);
+3. installs **FFmpeg** in a version whose NVENC GPU encoding works with your driver (8.0.1 for driver
+   570+, else 7.1.1), and test-encodes to check NVENC;
+4. downloads the depth models (~1.4 GB) so the first conversion starts straight away;
+5. creates **Start menu** and **desktop** shortcuts and an **uninstaller** (Apps & features, or
+   Start menu → Parallaxa → Uninstall).
+
+To **update**, run the setup (or `Install-Parallaxa.cmd`) again. If anything fails, the full log is in
+`%LOCALAPPDATA%\Programs\Parallaxa\install.log`.
+
+Models are stored in the shared Hugging Face cache (`%USERPROFILE%\.cache\huggingface`). They
+survive reinstalls. The app offers to fetch them on first launch, or you can use
+*Download models…* in the toolbar or `parallaxa download --all`.
+
+## Developer setup on a Windows 11 PC with an RTX 3060 (12 GB)
+
+Use this if you want to work on the code. Everyone else, use the easy install above.
 
 You need about 10 GB of disk space: roughly 3 GB for PyTorch with CUDA, 1.5 GB for the models,
 and room for output.
@@ -336,7 +369,8 @@ scale stays continuous across the join.
 
 ```
 parallaxa/
-  cli.py                 command-line entry point (parallaxa convert / gui / models / info / bench)
+  cli.py                 command-line entry point (parallaxa convert / gui / download / models / info / bench)
+  downloads.py           model pre-download (installer, first launch)
   bench.py               GPU / model speed measurements
   config.py              settings dataclasses, quality profiles, file types
   device.py              cuda/cpu selection, fp16 on GPU
@@ -364,6 +398,12 @@ parallaxa/
     jobs.py              batch queue: one `parallaxa convert --progress json` child process per file
     preview.py           live preview (depth once, re-render on slider changes) on a worker thread
     options.py           GUI settings <-> CLI arguments, presets storage (%APPDATA%\Parallaxa)
+installer/
+  install.ps1            per-user installer/updater (uv, Python, CUDA PyTorch, FFmpeg, shortcuts)
+  uninstall.ps1          removes it (optionally the downloaded models)
+  Install-Parallaxa.cmd  double-click wrapper for install.ps1
+  parallaxa.iss          Inno Setup script for Parallaxa-Setup.exe
+.github/workflows/windows-installer.yml   builds the setup on Windows and test-installs it
 tests/                   unit + end-to-end tests (run offline with debug models; GUI tests run offscreen)
 ```
 

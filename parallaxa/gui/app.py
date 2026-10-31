@@ -16,7 +16,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("Parallaxa")
     app.setOrganizationName("Parallaxa")
     app.setStyle("Fusion")
-    win = MainWindow()
+    win = MainWindow(offer_downloads=True)
     files = [a for a in (sys.argv[1:] if argv is None else argv) if not a.startswith("-")]
     if files:
         win.add_paths(files)

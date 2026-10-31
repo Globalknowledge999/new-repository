@@ -1,0 +1,72 @@
+# Builds Parallaxa-Setup.exe on Windows and checks that install.ps1 really installs a working app:
+# CPU PyTorch (the runner has no GPU), FFmpeg, a real conversion, and the full test suite.
+name: Windows installer
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # attach the setup to a GitHub Release when a v* tag is pushed
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install with install.ps1 (CPU PyTorch, no model download)
+        shell: powershell
+        run: |
+          .\installer\install.ps1 -InstallDir "$env:RUNNER_TEMP\Parallaxa" -Torch cpu -SkipModels -NoShortcuts -NoRegister
+          if ($LASTEXITCODE -ne 0) { Get-Content "$env:RUNNER_TEMP\Parallaxa\install.log" -Tail 80; exit 1 }
+
+      - name: Convert a video and a photo with the installed app
+        shell: powershell
+        run: |
+          $p = "$env:RUNNER_TEMP\Parallaxa"
+          $t = "$env:RUNNER_TEMP\smoke"
+          New-Item -ItemType Directory -Force $t | Out-Null
+          & "$p\ffmpeg\bin\ffmpeg.exe" -y -loglevel error -f lavfi -i testsrc2=size=320x180:rate=25:duration=2 -f lavfi -i sine=duration=2 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "$t\clip.mp4"
+          & "$p\ffmpeg\bin\ffmpeg.exe" -y -loglevel error -f lavfi -i testsrc2=size=320x180 -frames:v 1 "$t\photo.jpg"
+          & "$p\venv\Scripts\parallaxa.exe" convert $t -o "$t\out" --model debug-gradient --device cpu --encoder cpu --preset ultrafast -f sbs,anaglyph
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          foreach ($f in "clip_3D_SBS.mp4", "clip_3D_ANAGLYPH.mp4", "photo_3D_SBS.jpg") {
+            if (-not (Test-Path "$t\out\$f")) { Write-Error "missing $f"; exit 1 }
+          }
+          Get-ChildItem "$t\out"
+
+      - name: Run the test suite in the installed environment
+        shell: powershell
+        run: |
+          $p = "$env:RUNNER_TEMP\Parallaxa"
+          & "$p\uv\uv.exe" pip install --python "$p\venv\Scripts\python.exe" pytest
+          $env:PATH = "$p\ffmpeg\bin;$env:PATH"
+          $env:QT_QPA_PLATFORM = "offscreen"
+          & "$p\venv\Scripts\python.exe" -m pytest -q -p no:cacheprovider tests
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build Parallaxa-Setup.exe
+        shell: powershell
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) { Write-Error "ISCC.exe not found"; exit 1 }
+          $ver = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          & $iscc.FullName "/DAppVersion=$ver" installer\parallaxa.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-ChildItem dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Parallaxa-Setup
+          path: dist/*.exe
+
+      - name: Attach to the GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
