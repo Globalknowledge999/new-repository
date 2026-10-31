@@ -7,7 +7,10 @@ use is constant regardless of film length.
 from __future__ import annotations
 
 import time
+from contextlib import contextmanager
 from pathlib import Path
+
+import torch
 
 from ..config import VIDEO_FORMATS
 from ..depth import DepthNormalizer
@@ -25,7 +28,36 @@ def output_path(info: VideoInfo, out_dir: Path, fmt: str, container: str) -> Pat
     return out_dir / f"{info.path.stem}{LAYOUT_SUFFIX[fmt]}.{container}"
 
 
-def convert_video(engine: Engine, src: Path, out_dir: Path, model: str, depth_res: int, progress_mode: str = "text") -> list[Path]:
+class StageTimer:
+    """Wall-clock time per pipeline stage. Synchronises CUDA around each stage, so enable only to diagnose."""
+
+    def __init__(self, device: torch.device, enabled: bool):
+        self.enabled, self.cuda = enabled, device.type == "cuda"
+        self.totals: dict[str, float] = {}
+
+    @contextmanager
+    def __call__(self, name: str):
+        if not self.enabled:
+            yield
+            return
+        if self.cuda:
+            torch.cuda.synchronize()
+        t = time.perf_counter()
+        yield
+        if self.cuda:
+            torch.cuda.synchronize()
+        self.totals[name] = self.totals.get(name, 0.0) + time.perf_counter() - t
+
+    def report(self, frames: int) -> str:
+        total = sum(self.totals.values()) or 1e-9
+        lines = [f"timing over {frames} frames ({frames / total:.2f} frames/s):"]
+        for name, sec in sorted(self.totals.items(), key=lambda kv: -kv[1]):
+            lines.append(f"  {name:30s} {1000 * sec / max(frames, 1):8.1f} ms/frame  {100 * sec / total:5.1f}%")
+        return "\n".join(lines)
+
+
+def convert_video(engine: Engine, src: Path, out_dir: Path, model: str, depth_res: int, progress_mode: str = "text",
+                  timing: bool = False) -> list[Path]:
     job = engine.job
     out = job.output
     info = probe(src)
@@ -62,17 +94,34 @@ def convert_video(engine: Engine, src: Path, out_dir: Path, model: str, depth_re
         engine.log(f"encoder: {next(iter(writers.values())).encoder}")
         reader = FrameReader(info, ew, eh, batch=job.batch_size)
         prog = Progress(info.frame_count, src.name, progress_mode)
-        for batch in reader:
-            img = engine.to_tensor(batch)
-            closeness = normalizer(est.predict(img))
-            left, right = engine.renderer.render(img, closeness)
+        tm = StageTimer(engine.device, enabled=timing)
+        frames = iter(reader)
+        while True:
+            with tm("decode (waiting for ffmpeg)"):
+                batch = next(frames, None)
+            if batch is None:
+                break
+            with tm("upload to GPU"):
+                img = engine.to_tensor(batch)
+            with tm("depth model"):
+                raw = est.predict(img)
+            with tm("depth normalise"):
+                closeness = normalizer(raw)
+            with tm("stereo render"):
+                left, right = engine.renderer.render(img, closeness)
             for f, wr in writers.items():
-                wr.write(to_uint8(compose(f, left, right, img, closeness, out.anaglyph)))
+                with tm("pack + download"):
+                    packed = to_uint8(compose(f, left, right, img, closeness, out.anaglyph))
+                with tm("encode (waiting for ffmpeg)"):
+                    wr.write(packed)
             prog.update(len(batch))
         prog.total = prog.total or prog.done
         prog.finish()
-        for wr in writers.values():
-            wr.close()
+        with tm("encode (waiting for ffmpeg)"):
+            for wr in writers.values():
+                wr.close()
+        if timing:
+            engine.log(tm.report(prog.done))
     except BaseException:
         for wr in writers.values():
             wr.abort()

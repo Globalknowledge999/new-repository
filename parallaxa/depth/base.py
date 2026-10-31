@@ -41,8 +41,8 @@ class DepthNormalizer:
         out = torch.empty_like(depth, dtype=torch.float32)
         for i, d in enumerate(depth.float()):
             sample = d.flatten()
-            if sample.numel() > 1_000_000:  # quantile() is limited in size; subsample
-                sample = sample[:: sample.numel() // 1_000_000 + 1]
+            if sample.numel() > 200_000:  # percentiles of a strided subsample are accurate and much cheaper
+                sample = sample[:: sample.numel() // 200_000 + 1]
             lo, hi = torch.quantile(sample, torch.tensor([self.low_q, self.high_q], device=d.device)).tolist()
             if self.alpha > 0 and self._lo is not None:
                 lo = self.alpha * self._lo + (1 - self.alpha) * lo

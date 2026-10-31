@@ -70,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--batch-size", type=int, default=4, help="video frames per GPU batch")
     r.add_argument("--overwrite", action="store_true")
     r.add_argument("--progress", choices=["text", "json", "none"], default="text")
+    r.add_argument("--timing", action="store_true", help="video: print time spent per pipeline stage")
 
     sub.add_parser("models", help="list depth models and their licences")
     sub.add_parser("info", help="show GPU / FFmpeg / encoder status")
@@ -123,7 +124,7 @@ def cmd_convert(a) -> int:
             if kind == "photo":
                 convert_photo(engine, src, out_dir, model, res)
             else:
-                convert_video(engine, src, out_dir, model, res, a.progress)
+                convert_video(engine, src, out_dir, model, res, a.progress, a.timing)
         except KeyboardInterrupt:
             log("Cancelled.")
             return 130
