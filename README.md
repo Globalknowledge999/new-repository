@@ -283,6 +283,19 @@ parallaxa/
 tests/                   unit + end-to-end tests (run offline with debug models)
 ```
 
+### Troubleshooting
+
+* **`hevc_nvenc not available`**: run `parallaxa info` to see FFmpeg's reason. If it says
+  *"Driver does not support the required nvenc API version"*, your FFmpeg is newer than your GPU
+  driver. FFmpeg 9.x needs NVIDIA driver **610+**; FFmpeg 8.x works with **570+**. Either update
+  the driver or install FFmpeg 8.x (`winget install Gyan.FFmpeg --version <8.x>`, or put an 8.x
+  `bin` folder at `parallaxa\ffmpeg\bin`, which takes priority over PATH). Until then, videos
+  are encoded on the CPU (same quality, slower).
+* **`.venv\Scripts\activate` not found in PowerShell**: create the venv first, then run
+  `.\.venv\Scripts\Activate.ps1`.
+* **`CUDA available: False`**: the CPU-only PyTorch got installed. Reinstall it inside the venv
+  from the `cu128` index (setup step 3).
+
 ### Known limitations of phase 1
 
 * Video depth is per-frame DA-V2 with only the depth *range* smoothed over time, so some flicker
