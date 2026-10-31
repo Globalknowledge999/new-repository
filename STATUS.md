@@ -11,8 +11,14 @@ Last updated: 2026-10-31
 - FFmpeg 9.0.2 (winget Gyan.FFmpeg): NVENC fails with "requires nvenc API 13.1 / driver 610+".
   Fix in progress: update the driver to 610+, or downgrade to FFmpeg 8.x. CPU encoders work meanwhile.
 
+## RTX 3060 measurements (720p clip, 492 frames, NVENC working)
+- Depth per frame: Large@518 131-172 ms, Base@518 91 ms, Small@392 54 ms (bench: 28 ms)
+- Render after sparse-fill optimisation: ~15 ms (was 57 ms)
+- User saw no visible difference between Large, Base and Small on video, so video default -> Small
+- GPU is healthy under load (1942 MHz, 61 C, ~120 W of 170 W); matmul bench 9 TFLOPS fp16 / 3 fp32
+- Speed lever for Large: TensorRT/ONNX path (planned)
+
 ## Waiting on the user
-- `parallaxa info` showing `hevc_nvenc ok`
 - First real-model results: photo depth quality, time per photo, video fps, flicker, comfort
   of `--strength 3 --convergence 0.6`
 

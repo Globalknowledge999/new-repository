@@ -30,6 +30,8 @@ def _time(fn, device: torch.device, runs: int) -> float:
 
 def run(model_name: str, device_name: str, height: int, width: int, depth_res: int, batch: int, runs: int) -> None:
     device = resolve_device(device_name)
+    if device.type == "cuda":
+        torch.backends.cudnn.benchmark = True  # same as real conversions
     print(f"device: {describe(device)}   torch {torch.__version__}")
     if device.type == "cuda":
         print(f"cudnn {torch.backends.cudnn.version()}  "

@@ -11,9 +11,9 @@ Weights are not stored in this repository. They download from Hugging Face on fi
 
 | Key | Model | Params | Licence (weights) | Used for |
 |---|---|---|---|---|
-| `da2-small` | [Depth Anything V2 Small](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf) | ~25M | Apache-2.0 | `fast` profile |
+| `da2-small` | [Depth Anything V2 Small](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf) | ~25M | Apache-2.0 | **default for video**, `fast` profile |
 | `da2-base` | [Depth Anything V2 Base](https://huggingface.co/depth-anything/Depth-Anything-V2-Base-hf) | ~98M | CC-BY-NC-4.0 | `balanced` profile |
-| `da2-large` | [Depth Anything V2 Large](https://huggingface.co/depth-anything/Depth-Anything-V2-Large-hf) | ~335M | CC-BY-NC-4.0 | **default for photos and (until phase 2) video** |
+| `da2-large` | [Depth Anything V2 Large](https://huggingface.co/depth-anything/Depth-Anything-V2-Large-hf) | ~335M | CC-BY-NC-4.0 | **default for photos** |
 
 These are loaded through Hugging Face `transformers` (Apache-2.0). Paper: Yang et al.,
 *Depth Anything V2*, NeurIPS 2024.

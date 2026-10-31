@@ -177,7 +177,7 @@ frame-packing SEI.
 
 | `--profile` | Model | Depth resolution | Notes |
 |---|---|---|---|
-| `auto` (default) | DA-V2 Large | 700 px photos / 518 px video | Best quality |
+| `auto` (default) | DA-V2 Large for photos, DA-V2 Small for video | 700 px photos / 392 px video | On an RTX 3060, Small was 2.6× faster than Large on video with no visible difference |
 | `quality` | DA-V2 Large | 518 | |
 | `balanced` | DA-V2 Base | 518 | ~2× faster depth than Large |
 | `fast` | DA-V2 Small | 392 | Apache-2.0 model. Several times faster, softer edges |
