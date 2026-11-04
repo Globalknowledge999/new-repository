@@ -210,3 +210,29 @@ def test_model_download_dialog_reports_failure_offline(app, monkeypatch):
     assert dlg.failed and "da2-small" in dlg.failed[0]
     assert "failed" in dlg.labelText()
     dlg.close()
+
+
+def test_preview_clears_when_its_file_leaves_the_queue(app, tmp_path, scene):
+    from PIL import Image
+
+    from parallaxa.gui.main_window import PREVIEW_HINT, MainWindow
+
+    for name in ("a.png", "b.png"):
+        Image.fromarray(scene[0]).save(tmp_path / name)
+    store = PresetStore(tmp_path / "cfg")
+    store.save_last(ConvertOptions(model="debug-gradient", device="cpu", fill="basic"))
+    win = MainWindow(presets=store, preview_device="cpu")
+    win.add_paths([str(tmp_path / "a.png"), str(tmp_path / "b.png")])
+    win.table.selectRow(0)
+    assert pump(app, 30, lambda: bool(win.preview._frames))
+
+    win.runner.remove([1])  # removing another file keeps the preview
+    assert win.preview._frames and win._preview_path.endswith("a.png")
+
+    win.runner.jobs[0].status = DONE
+    win.runner.clear_finished()  # the previewed file goes: preview and caption clear
+    assert not win.preview._frames and win.preview.text() == PREVIEW_HINT and win.preview_caption.text() == ""
+
+    win._preview_ready([scene[0]], "late result")  # a render finishing afterwards is ignored
+    assert not win.preview._frames
+    win.close()

@@ -41,6 +41,9 @@ HEIGHTS = [(0, "Same as source"), (2160, "2160p (4K)"), (1440, "1440p"), (1080, 
 COLUMNS = ["File", "Type", "Status", "Progress", "Time left", "Details"]
 
 
+PREVIEW_HINT = "Select a file in the queue to preview it in 3D"
+
+
 def to_qimage(arr: np.ndarray) -> QImage:
     h, w, _ = arr.shape
     return QImage(arr.data, w, h, 3 * w, QImage.Format.Format_RGB888).copy()
@@ -50,7 +53,7 @@ class PreviewLabel(QLabel):
     """Scales its pixmap to fit while keeping the aspect ratio; alternates two frames in wobble mode."""
 
     def __init__(self):
-        super().__init__("Select a file in the queue to preview it in 3D")
+        super().__init__(PREVIEW_HINT)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumSize(320, 200)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -140,6 +143,7 @@ class MainWindow(QMainWindow):
         self.runner = QueueRunner(self)
         self._loading_settings = True  # widgets fire change signals while being built
         self._advanced: dict = {}
+        self._preview_path: str | None = None  # file currently shown (or being rendered) in the preview
         self._offer_downloads = offer_downloads
         self._download_dialog = None
 
@@ -483,6 +487,8 @@ class MainWindow(QMainWindow):
         for r in range(len(jobs)):
             self._update_row(r)
         self.queue_stack.setCurrentIndex(1 if jobs else 0)
+        if self._preview_path and not any(str(j.path) == self._preview_path for j in jobs):
+            self._clear_preview()  # its file was removed from the queue
         self._update_status()
 
     def _update_row(self, r: int) -> None:
@@ -589,13 +595,24 @@ class MainWindow(QMainWindow):
         if not rows or rows[0] >= len(self.runner.jobs):
             return
         job = self.runner.jobs[rows[0]]
+        self._preview_path = str(job.path)
         self.preview_requested.emit((str(job.path), job.kind, self.options(), self.mode_combo.currentData()))
 
+    def _clear_preview(self) -> None:
+        self._preview_path = None
+        self._render_timer.stop()
+        self.preview.clear_preview(PREVIEW_HINT)
+        self.preview_caption.setText("")
+
     def _preview_ready(self, images: list, caption: str) -> None:
+        if self._preview_path is None:  # finished rendering after its file was cleared from the queue
+            return
         self.preview.set_images(images)
         self.preview_caption.setText(caption)
 
     def _preview_status(self, text: str) -> None:
+        if self._preview_path is None:
+            return
         self.preview_caption.setText(text)
         if text.startswith("Preview failed"):
             self._append_log(text)
