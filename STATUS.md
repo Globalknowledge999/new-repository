@@ -83,6 +83,11 @@ Last updated: 2026-10-31 (phase 5)
   (Inno otherwise silently reused the old per-user mode), wait-then-clean removal of the per-user copy.
   Build 11 confirmed by the user on 2026-10-31: all good.
 
+## Speed on the RTX 3060 (2026-11-04, default video settings, 1482x830, 4315 frames)
+- Installed app and developer copy identical: ~28 fps (timing: depth 17.7 ms = 53%, warp 5.4, fill 4.1,
+  pack 2.4, prepare 1.6, normalise 0.9 ms/frame). Earlier 20 fps reading was a one-off.
+- TensorRT would speed up only the depth half: ~1.3-1.5x overall at best. Not pursued for now.
+
 ## Possible future work
 - Per-file settings in the GUI queue (currently: settings apply to files started after a change)
 - StereoCrafter-style video gap filling (needs >12 GB VRAM and gated weights; licence is research-only)
