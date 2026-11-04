@@ -88,6 +88,11 @@ Last updated: 2026-10-31 (phase 5)
   pack 2.4, prepare 1.6, normalise 0.9 ms/frame). Earlier 20 fps reading was a one-off.
 - TensorRT would speed up only the depth half: ~1.3-1.5x overall at best. Not pursued for now.
 
+## AI gap filling: parked (2026-11-04)
+- User is happy with output quality; more AI-fill work judged too much effort for a marginal gain.
+  Keep `--fill ai` as an option; basic stays the default. Ideas if ever revisited: a fair test on a
+  close-up at strength 7, full-resolution fill around gaps, LCM-LoRA (~4 steps), LaMa via ONNX.
+
 ## Possible future work
 - Per-file settings in the GUI queue (currently: settings apply to files started after a change)
 - StereoCrafter-style video gap filling (needs >12 GB VRAM and gated weights; licence is research-only)
